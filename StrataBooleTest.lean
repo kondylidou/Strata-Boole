@@ -47,3 +47,12 @@ import StrataBooleTest.FeatureRequests.seq_slicing
 import StrataBooleTest.FeatureRequests.struct_field_access
 import StrataBooleTest.FeatureRequests.trait_spec_methods
 import StrataBooleTest.widening_casts
+import StrataBooleTest.FeatureRequests.b1_minimal
+import StrataBooleTest.FeatureRequests.b1_boundary_proved
+import StrataBooleTest.FeatureRequests.b1_full
+import StrataBooleTest.FeatureRequests.b2_minimal
+import StrataBooleTest.FeatureRequests.b2_minimal_playground_pow2
+import StrataBooleTest.FeatureRequests.b2_minimal_unsound_len
+import StrataBooleTest.FeatureRequests.b3_minimal
+import StrataBooleTest.FeatureRequests.b4_minimal
+import StrataBooleTest.FeatureRequests.b5_minimal
