@@ -102,7 +102,7 @@ Generate core VCs for a program with bypassed procedures.  `CallElim` is applied
 first so that call sites of bypassed procedures use the callee spec (havoc +
 ensures assumptions) instead of inlining the body.  For Boole programs, bypassed
 procedures are then removed from the Core program before VC generation, so their
-bv128 definitions never appear in the shared SMT context.
+definitions do not appear in the shared SMT context.
 -/
 private def genCoreVCsBooleFiltered (program : Program) (bypassProcs : List String)
     (options : MetaVerifier.Options := {}) : Option Core.coreVCs := do
