@@ -33,7 +33,7 @@ spec {
   ensures good(w, x);
 }
 {
-  w := ε z: int . good(z, x);
+  w := ε z: int :: good(z, x);
 };
 #end
 
@@ -64,16 +64,16 @@ spec {
   ensures true;
 }
 {
-  w := ε z: int . z != z;
+  w := ε z: int :: z != z;
 };
 #end
 
 /-- info:
-Obligation: choose_1_1603_exists
+Obligation: choose_1_1604_exists
 Property: assert
 Result: ❌ fail
 
-Obligation: choose_unsat_ensures_0_1583
+Obligation: choose_unsat_ensures_0_1584
 Property: assert
 Result: ✅ pass-/
 #guard_msgs in
@@ -102,7 +102,7 @@ program Boole;
 function good(z: int, x: int) : bool;
 
 function best(x: int) : int :=
-  ε z : int . good(z, x);
+  ε z : int :: good(z, x);
 
 procedure test_choose_fn(x: int) returns (w: int)
 spec {
@@ -115,7 +115,7 @@ spec {
 #end
 
 /-- info:
-Obligation: test_choose_fn_ensures_1_2749
+Obligation: test_choose_fn_ensures_1_2751
 Property: assert
 Result: ✅ pass-/
 #guard_msgs in
@@ -131,7 +131,7 @@ program Boole;
 function good(z: int, x: int) : bool;
 
 function best(x: int) : int :=
-  ε z : int . good(z, x);
+  ε z : int :: good(z, x);
 
 procedure test_no_precond(x: int) returns (w: int)
 spec {
@@ -143,7 +143,7 @@ spec {
 #end
 
 /-- info:
-Obligation: test_no_precond_ensures_0_3444
+Obligation: test_no_precond_ensures_0_3447
 Property: assert
 Result: ✅ pass-/
 #guard_msgs in
