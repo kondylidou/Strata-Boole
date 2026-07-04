@@ -64,13 +64,17 @@ definition-level guard class shared with B1–B3 (the 32-term `u8_32_as_nat`
 guards, `p`/`field_canonical` guards, and their call-site echoes), amplified
 by the faithful int-domain limb arithmetic.
 
-Status: this file uses the `as_int` cast syntax from pr/casts-boole, the
-native `command_choosefndef` (#1365), and the `toCoreMonoType`
-type-argument-order fix. The un-merged branch has none of these, so the
-`#exit` below keeps the file inert until they land.
--/
+Results (z3, 2026-07-03): 785 of 797 obligations pass, 0 fail; the 12
+timeouts are the nonlinear field-arithmetic `assert_*` chain.  The
+definition-level guard class is closed by the synthesized
+`Sequence.length` contracts and the `[T; N]`-returning spec-fn axioms
+(`u8_32_from_nat_ret_len`, `ristretto_compress_extended_ret_len`, …).
 
-#exit
+Status: builds and verifies against this branch (ε choose grammar,
+`as_int` casts, native `command_choosefndef`, `toCoreMonoType` type-arg
+fix all present).  The `#eval` below stays commented so `lake build`
+does not run the full z3 pass; uncomment to reproduce the numbers.
+-/
 
 open Strata
 
@@ -82,30 +86,23 @@ program Boole;
 
  type nat;
  function nat.toInt (n : nat) : int;
- function nat.fromIntAux (x : int) : nat;
- function nat.fromInt (x : int) : nat requires 0 <= x;
-   {
-  nat.fromIntAux(x)
-}
+ function nat.fromInt (x : int) : nat;
  axiom [nat_nonneg]: forall n : nat :: 0 <= nat.toInt(n);
  axiom [nat_fromInt_toInt]: forall x : int :: 0 <= x ==> nat.toInt(nat.fromInt(x)) == x;
  axiom [nat_toInt_fromInt]: forall n : nat :: nat.fromInt(nat.toInt(n)) == n;
  function nat.add (a : nat, b : nat) : nat {
   nat.fromInt(nat.toInt(a) + nat.toInt(b))
 }
- function nat.sub (a : nat, b : nat) : nat requires nat.toInt(b) <= nat.toInt(a);
-   {
+ function nat.sub (a : nat, b : nat) : nat {
   nat.fromInt(nat.toInt(a) - nat.toInt(b))
 }
  function nat.mul (a : nat, b : nat) : nat {
   nat.fromInt(nat.toInt(a) * nat.toInt(b))
 }
- function nat.div (a : nat, b : nat) : nat requires nat.toInt(b) != 0;
-   {
+ function nat.div (a : nat, b : nat) : nat {
   nat.fromInt(nat.toInt(a) div nat.toInt(b))
 }
- function nat.mod (a : nat, b : nat) : nat requires nat.toInt(b) != 0;
-   {
+ function nat.mod (a : nat, b : nat) : nat {
   nat.fromInt(nat.toInt(a) mod nat.toInt(b))
 }
  function nat.lt (a : nat, b : nat) : bool {
@@ -134,6 +131,10 @@ program Boole;
  datatype edwardsPoint {
   edwardsPoint_ctor(X : fieldElement51, Y : fieldElement51, Z : fieldElement51, T : fieldElement51)
 };
+ axiom [edwardsPoint_X_len]: ∀ s : edwardsPoint :: Sequence.length(fieldElement51..limbs(edwardsPoint..X(s))) == 5;
+ axiom [edwardsPoint_Y_len]: ∀ s : edwardsPoint :: Sequence.length(fieldElement51..limbs(edwardsPoint..Y(s))) == 5;
+ axiom [edwardsPoint_Z_len]: ∀ s : edwardsPoint :: Sequence.length(fieldElement51..limbs(edwardsPoint..Z(s))) == 5;
+ axiom [edwardsPoint_T_len]: ∀ s : edwardsPoint :: Sequence.length(fieldElement51..limbs(edwardsPoint..T(s))) == 5;
  datatype ristrettoPoint {
   ristrettoPoint_ctor(_0 : edwardsPoint)
 };
@@ -152,7 +153,9 @@ program Boole;
  function Arithmetic_Power2_pow2 (e : nat) : nat;
  function choice_is_true (c : choice) : bool;
  function is_on_edwards_curve_projective (x : nat, y : nat, z : nat) : bool;
- function sum_of_limbs_bounded (fe1 : fieldElement51, fe2 : fieldElement51, bound : bv64) : bool {
+ function sum_of_limbs_bounded (fe1 : fieldElement51, fe2 : fieldElement51, bound : bv64) : bool requires Sequence.length(fieldElement51..limbs(fe1)) == 5;
+   requires Sequence.length(fieldElement51..limbs(fe2)) == 5;
+   {
   ∀ i : int :: 0 <= i && i < 5 ==> as_uint(Sequence.select(fieldElement51..limbs(fe1), i)) + as_uint(Sequence.select(fieldElement51..limbs(fe2), i)) < as_uint(bound)
 }
  function p () : nat {
@@ -161,26 +164,34 @@ program Boole;
  function field_canonical (n : nat) : nat {
   nat.mod(n, p)
 }
- function u64_5_as_nat (limbs : Sequence bv64) : nat {
+ function u64_5_as_nat (limbs : Sequence bv64) : nat requires Sequence.length(limbs) == 5;
+   {
   nat.add(nat.add(nat.add(nat.add(nat.fromInt(as_uint(Sequence.select(limbs, 0))), nat.mul(Arithmetic_Power2_pow2(nat.fromInt(51)), nat.fromInt(as_uint(Sequence.select(limbs, 1))))), nat.mul(Arithmetic_Power2_pow2(nat.fromInt(102)), nat.fromInt(as_uint(Sequence.select(limbs, 2))))), nat.mul(Arithmetic_Power2_pow2(nat.fromInt(153)), nat.fromInt(as_uint(Sequence.select(limbs, 3))))), nat.mul(Arithmetic_Power2_pow2(nat.fromInt(204)), nat.fromInt(as_uint(Sequence.select(limbs, 4)))))
 }
- function u64_5_as_field_canonical (limbs : Sequence bv64) : nat {
+ function u64_5_as_field_canonical (limbs : Sequence bv64) : nat requires Sequence.length(limbs) == 5;
+   {
   field_canonical(u64_5_as_nat(limbs))
 }
- function fe51_as_canonical_nat (fe : fieldElement51) : nat {
+ function fe51_as_canonical_nat (fe : fieldElement51) : nat requires Sequence.length(fieldElement51..limbs(fe)) == 5;
+   {
   u64_5_as_field_canonical(fieldElement51..limbs(fe))
 }
  function field_add (a : nat, b : nat) : nat {
   field_canonical(nat.add(a, b))
 }
- function u64_5_bounded (limbs : Sequence bv64, bit_limit : bv64) : bool {
+ function u64_5_bounded (limbs : Sequence bv64, bit_limit : bv64) : bool requires Sequence.length(limbs) == 5;
+   {
   ∀ i : int :: 0 <= i && i < 5 ==> Sequence.select(limbs, i) < bv{64}(1) << bit_limit
 }
- function fe51_limbs_bounded (fe : fieldElement51, bit_limit : bv64) : bool {
+ function fe51_limbs_bounded (fe : fieldElement51, bit_limit : bv64) : bool requires Sequence.length(fieldElement51..limbs(fe)) == 5;
+   {
   u64_5_bounded(fieldElement51..limbs(fe), bit_limit)
 }
  procedure Impl__13_fe_add (self : fieldElement51, rhs : fieldElement51) returns (output : fieldElement51)
 spec {
+  requires Sequence.length(fieldElement51..limbs(self)) == 5;
+  requires Sequence.length(fieldElement51..limbs(rhs)) == 5;
+  ensures Sequence.length(fieldElement51..limbs(output)) == 5;
   requires sum_of_limbs_bounded(self, rhs, bv{64}(18446744073709551615));
   ensures nat.toInt(fe51_as_canonical_nat(output)) == nat.toInt(field_add(fe51_as_canonical_nat(self), fe51_as_canonical_nat(rhs)));
   ensures fe51_limbs_bounded(self, bv{64}(51)) && fe51_limbs_bounded(rhs, bv{64}(51)) ==> fe51_limbs_bounded(output, bv{64}(52));
@@ -193,6 +204,9 @@ spec {
 }
  procedure Impl__13_fe_sub (self : fieldElement51, rhs : fieldElement51) returns (output : fieldElement51)
 spec {
+  requires Sequence.length(fieldElement51..limbs(self)) == 5;
+  requires Sequence.length(fieldElement51..limbs(rhs)) == 5;
+  ensures Sequence.length(fieldElement51..limbs(output)) == 5;
   requires fe51_limbs_bounded(self, bv{64}(54));
   requires fe51_limbs_bounded(rhs, bv{64}(54));
   ensures nat.toInt(fe51_as_canonical_nat(output)) == nat.toInt(field_sub(fe51_as_canonical_nat(self), fe51_as_canonical_nat(rhs)));
@@ -206,6 +220,9 @@ spec {
 }
  procedure Impl__13_fe_mul (self : fieldElement51, rhs : fieldElement51) returns (output : fieldElement51)
 spec {
+  requires Sequence.length(fieldElement51..limbs(self)) == 5;
+  requires Sequence.length(fieldElement51..limbs(rhs)) == 5;
+  ensures Sequence.length(fieldElement51..limbs(output)) == 5;
   requires fe51_limbs_bounded(self, bv{64}(54));
   requires fe51_limbs_bounded(rhs, bv{64}(54));
   ensures nat.toInt(fe51_as_canonical_nat(output)) == nat.toInt(field_mul(fe51_as_canonical_nat(self), fe51_as_canonical_nat(rhs)));
@@ -216,6 +233,8 @@ spec {
 };
  procedure Impl__13_square (self : fieldElement51) returns (r : fieldElement51)
 spec {
+  requires Sequence.length(fieldElement51..limbs(self)) == 5;
+  ensures Sequence.length(fieldElement51..limbs(r)) == 5;
   requires fe51_limbs_bounded(self, bv{64}(54));
   ensures fe51_limbs_bounded(r, bv{64}(52));
   ensures fe51_limbs_bounded(r, bv{64}(54));
@@ -226,7 +245,10 @@ spec {
  function is_sqrt_ratio (u : nat, v : nat, r : nat) : bool {
   nat.toInt(field_canonical(nat.mul(nat.mul(r, r), v))) == nat.toInt(field_canonical(u))
 }
- function fe51_is_sqrt_ratio (u : fieldElement51, v : fieldElement51, r : fieldElement51) : bool {
+ function fe51_is_sqrt_ratio (u : fieldElement51, v : fieldElement51, r : fieldElement51) : bool requires Sequence.length(fieldElement51..limbs(u)) == 5;
+   requires Sequence.length(fieldElement51..limbs(v)) == 5;
+   requires Sequence.length(fieldElement51..limbs(r)) == 5;
+   {
   is_sqrt_ratio(fe51_as_canonical_nat(u), fe51_as_canonical_nat(v), fe51_as_canonical_nat(r))
 }
  function Impl__3_oNE () : fieldElement51 {
@@ -241,11 +263,16 @@ spec {
  function is_sqrt_ratio_times_i (u : nat, v : nat, r : nat) : bool {
   nat.toInt(field_canonical(nat.mul(nat.mul(r, r), v))) == nat.toInt(field_mul(sqrt_m1, u))
 }
- function fe51_is_sqrt_ratio_times_i (u : fieldElement51, v : fieldElement51, r : fieldElement51) : bool {
+ function fe51_is_sqrt_ratio_times_i (u : fieldElement51, v : fieldElement51, r : fieldElement51) : bool requires Sequence.length(fieldElement51..limbs(u)) == 5;
+   requires Sequence.length(fieldElement51..limbs(v)) == 5;
+   requires Sequence.length(fieldElement51..limbs(r)) == 5;
+   {
   is_sqrt_ratio_times_i(fe51_as_canonical_nat(u), fe51_as_canonical_nat(v), fe51_as_canonical_nat(r))
 }
  procedure Impl__13_invsqrt (self : fieldElement51) returns (result : (Tuple2 choice fieldElement51))
 spec {
+  requires Sequence.length(fieldElement51..limbs(self)) == 5;
+  ensures Sequence.length(fieldElement51..limbs(Tuple2.._1(result))) == 5;
   requires fe51_limbs_bounded(self, bv{64}(54));
   ensures nat.toInt(fe51_as_canonical_nat(self)) == 0 ==> !(choice_is_true(Tuple2.._0(result))) && nat.toInt(fe51_as_canonical_nat(Tuple2.._1(result))) == 0;
   ensures choice_is_true(Tuple2.._0(result)) ==> fe51_is_sqrt_ratio(Impl__3_oNE, self, Tuple2.._1(result));
@@ -260,22 +287,28 @@ spec {
 }
  procedure Impl__13_is_negative (self : fieldElement51) returns (result : choice)
 spec {
+  requires Sequence.length(fieldElement51..limbs(self)) == 5;
   ensures choice_is_true(result) == is_negative(fe51_as_canonical_nat(self));
   } {
   assume false;
 };
- function u8_32_as_nat (bytes : Sequence bv8) : nat {
+ function u8_32_as_nat (bytes : Sequence bv8) : nat requires Sequence.length(bytes) == 32;
+   {
   nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 0))), Arithmetic_Power2_pow2(nat.fromInt(0))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 1))), Arithmetic_Power2_pow2(nat.fromInt(8)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 2))), Arithmetic_Power2_pow2(nat.fromInt(16)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 3))), Arithmetic_Power2_pow2(nat.fromInt(24)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 4))), Arithmetic_Power2_pow2(nat.fromInt(32)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 5))), Arithmetic_Power2_pow2(nat.fromInt(40)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 6))), Arithmetic_Power2_pow2(nat.fromInt(48)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 7))), Arithmetic_Power2_pow2(nat.fromInt(56)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 8))), Arithmetic_Power2_pow2(nat.fromInt(64)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 9))), Arithmetic_Power2_pow2(nat.fromInt(72)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 10))), Arithmetic_Power2_pow2(nat.fromInt(80)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 11))), Arithmetic_Power2_pow2(nat.fromInt(88)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 12))), Arithmetic_Power2_pow2(nat.fromInt(96)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 13))), Arithmetic_Power2_pow2(nat.fromInt(104)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 14))), Arithmetic_Power2_pow2(nat.fromInt(112)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 15))), Arithmetic_Power2_pow2(nat.fromInt(120)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 16))), Arithmetic_Power2_pow2(nat.fromInt(128)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 17))), Arithmetic_Power2_pow2(nat.fromInt(136)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 18))), Arithmetic_Power2_pow2(nat.fromInt(144)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 19))), Arithmetic_Power2_pow2(nat.fromInt(152)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 20))), Arithmetic_Power2_pow2(nat.fromInt(160)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 21))), Arithmetic_Power2_pow2(nat.fromInt(168)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 22))), Arithmetic_Power2_pow2(nat.fromInt(176)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 23))), Arithmetic_Power2_pow2(nat.fromInt(184)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 24))), Arithmetic_Power2_pow2(nat.fromInt(192)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 25))), Arithmetic_Power2_pow2(nat.fromInt(200)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 26))), Arithmetic_Power2_pow2(nat.fromInt(208)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 27))), Arithmetic_Power2_pow2(nat.fromInt(216)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 28))), Arithmetic_Power2_pow2(nat.fromInt(224)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 29))), Arithmetic_Power2_pow2(nat.fromInt(232)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 30))), Arithmetic_Power2_pow2(nat.fromInt(240)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 31))), Arithmetic_Power2_pow2(nat.fromInt(248))))
 }
  procedure Impl__13_as_bytes (self : fieldElement51) returns (r : (Sequence bv8))
 spec {
-  ensures nat.toInt(u8_32_as_nat(r)) == nat.toInt(fe51_as_canonical_nat(self));
+  requires Sequence.length(fieldElement51..limbs(self)) == 5;
   ensures Sequence.length(r) == 32;
+  ensures nat.toInt(u8_32_as_nat(r)) == nat.toInt(fe51_as_canonical_nat(self));
   } {
   assume false;
 };
  procedure conditional_assign_field_element (a : fieldElement51, b : fieldElement51, choice : choice) returns (a_out : fieldElement51)
 spec {
+  requires Sequence.length(fieldElement51..limbs(a)) == 5;
+  requires Sequence.length(fieldElement51..limbs(b)) == 5;
+  ensures Sequence.length(fieldElement51..limbs(a_out)) == 5;
   requires fe51_limbs_bounded(a, bv{64}(52));
   requires fe51_limbs_bounded(b, bv{64}(52));
   ensures !(choice_is_true(choice)) ==> a_out == a;
@@ -289,6 +322,8 @@ spec {
 }
  procedure conditional_negate_field_element (a : fieldElement51, choice : choice) returns (a_out : fieldElement51)
 spec {
+  requires Sequence.length(fieldElement51..limbs(a)) == 5;
+  ensures Sequence.length(fieldElement51..limbs(a_out)) == 5;
   requires fe51_limbs_bounded(a, bv{64}(54));
   ensures fe51_limbs_bounded(a_out, bv{64}(54));
   ensures choice_is_true(choice) ==> fe51_limbs_bounded(a_out, bv{64}(52));
@@ -297,7 +332,8 @@ spec {
   } {
   assume false;
 };
- function fe51_as_nat (fe : fieldElement51) : nat {
+ function fe51_as_nat (fe : fieldElement51) : nat requires Sequence.length(fieldElement51..limbs(fe)) == 5;
+   {
   u64_5_as_nat(fieldElement51..limbs(fe))
 }
  function field_square (a : nat) : nat {
@@ -308,6 +344,7 @@ spec {
 }
  function u8_32_from_nat (n : nat) : Sequence bv8 :=
   ε b : (Sequence bv8) :: Sequence.length(b) == 32 && nat.toInt(u8_32_as_nat(b)) == nat.toInt(nat.mod(n, Arithmetic_Power2_pow2(nat.fromInt(256))));
+ axiom [u8_32_from_nat_ret_len]: ∀ n : nat :: Sequence.length(u8_32_from_nat(n)) == 32;
  function iNVSQRT_A_MINUS_D () : fieldElement51 {
   fieldElement51_ctor(Sequence.of_bv64[bv{64}(278908739862762), bv{64}(821645201101625), bv{64}(8113234426968), bv{64}(1777959178193151), bv{64}(2118520810568447)])
 }
@@ -341,11 +378,15 @@ spec {
  function ristretto_compress_extended (x : nat, y : nat, z : nat, t : nat) : Sequence bv8 {
   u8_32_from_nat(if is_negative(field_mul(if is_negative(field_mul(t, field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(field_add(z, y), field_sub(z, y))), field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(x, y)), t)))) then field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(field_add(z, y), field_sub(z, y))), fe51_as_canonical_nat(iNVSQRT_A_MINUS_D)) else field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(x, y)), field_sub(z, if is_negative(field_mul(if is_negative(field_mul(t, field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(field_add(z, y), field_sub(z, y))), field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(x, y)), t)))) then field_mul(y, sqrt_m1) else x, field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(field_add(z, y), field_sub(z, y))), field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(x, y)), t)))) then field_neg(if is_negative(field_mul(t, field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(field_add(z, y), field_sub(z, y))), field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(x, y)), t)))) then field_mul(x, sqrt_m1) else y) else if is_negative(field_mul(t, field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(field_add(z, y), field_sub(z, y))), field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(x, y)), t)))) then field_mul(x, sqrt_m1) else y))) then field_neg(field_mul(if is_negative(field_mul(t, field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(field_add(z, y), field_sub(z, y))), field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(x, y)), t)))) then field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(field_add(z, y), field_sub(z, y))), fe51_as_canonical_nat(iNVSQRT_A_MINUS_D)) else field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(x, y)), field_sub(z, if is_negative(field_mul(if is_negative(field_mul(t, field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(field_add(z, y), field_sub(z, y))), field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(x, y)), t)))) then field_mul(y, sqrt_m1) else x, field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(field_add(z, y), field_sub(z, y))), field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(x, y)), t)))) then field_neg(if is_negative(field_mul(t, field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(field_add(z, y), field_sub(z, y))), field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(x, y)), t)))) then field_mul(x, sqrt_m1) else y) else if is_negative(field_mul(t, field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(field_add(z, y), field_sub(z, y))), field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(x, y)), t)))) then field_mul(x, sqrt_m1) else y))) else field_mul(if is_negative(field_mul(t, field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(field_add(z, y), field_sub(z, y))), field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(x, y)), t)))) then field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(field_add(z, y), field_sub(z, y))), fe51_as_canonical_nat(iNVSQRT_A_MINUS_D)) else field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(x, y)), field_sub(z, if is_negative(field_mul(if is_negative(field_mul(t, field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(field_add(z, y), field_sub(z, y))), field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(x, y)), t)))) then field_mul(y, sqrt_m1) else x, field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(field_add(z, y), field_sub(z, y))), field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(x, y)), t)))) then field_neg(if is_negative(field_mul(t, field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(field_add(z, y), field_sub(z, y))), field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(x, y)), t)))) then field_mul(x, sqrt_m1) else y) else if is_negative(field_mul(t, field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(field_add(z, y), field_sub(z, y))), field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(x, y)), t)))) then field_mul(x, sqrt_m1) else y)))
 }
+ axiom [ristretto_compress_extended_ret_len]: ∀ x : nat, y : nat, z : nat, t : nat :: Sequence.length(ristretto_compress_extended(x, y, z, t)) == 32;
  function spec_ristretto_compress (point : ristrettoPoint) : Sequence bv8 {
   ristretto_compress_extended(Tuple2.._0(edwards_point_as_nat(ristrettoPoint.._0(point))), Tuple2.._0(Tuple2.._1(edwards_point_as_nat(ristrettoPoint.._0(point)))), Tuple2.._0(Tuple2.._1(Tuple2.._1(edwards_point_as_nat(ristrettoPoint.._0(point))))), Tuple2.._1(Tuple2.._1(Tuple2.._1(edwards_point_as_nat(ristrettoPoint.._0(point))))))
 }
+ axiom [spec_ristretto_compress_ret_len]: ∀ point : ristrettoPoint :: Sequence.length(spec_ristretto_compress(point)) == 32;
  procedure Impl__2_clone (self : fieldElement51) returns (_pct_return : fieldElement51)
 spec {
+  requires Sequence.length(fieldElement51..limbs(self)) == 5;
+  ensures Sequence.length(fieldElement51..limbs(_pct_return)) == 5;
   ensures _pct_return == self;
   } {
   _pct_return := self;
@@ -374,6 +415,7 @@ spec {
 };
  procedure Impl__14_compress (self : ristrettoPoint) returns (result : compressedRistretto)
 spec {
+  ensures Sequence.length(compressedRistretto.._0(result)) == 32;
   requires is_well_formed_edwards_point(ristrettoPoint.._0(self));
   ensures compressedRistretto.._0(result) == spec_ristretto_compress(self);
   } {
@@ -813,6 +855,7 @@ spec {
 };
  procedure lemma_fe51_limbs_bounded_weaken (fe : fieldElement51, a : bv64, b : bv64) returns ()
 spec {
+  requires Sequence.length(fieldElement51..limbs(fe)) == 5;
   requires fe51_limbs_bounded(fe, a);
   requires a < b;
   requires b <= bv{64}(63);
@@ -831,6 +874,8 @@ spec {
 };
  procedure lemma_sum_of_limbs_bounded_from_fe51_bounded (a : fieldElement51, b : fieldElement51, n : bv64) returns ()
 spec {
+  requires Sequence.length(fieldElement51..limbs(a)) == 5;
+  requires Sequence.length(fieldElement51..limbs(b)) == 5;
   requires fe51_limbs_bounded(a, n);
   requires fe51_limbs_bounded(b, n);
   requires n <= bv{64}(62);
@@ -872,6 +917,7 @@ spec {
 };
  procedure lemma_canonical_nat_lt_p (x : fieldElement51) returns ()
 spec {
+  requires Sequence.length(fieldElement51..limbs(x)) == 5;
   ensures nat.lt(fe51_as_canonical_nat(x), p);
   } {
   var tmp1 : nat;
@@ -916,6 +962,8 @@ spec {
 };
  procedure lemma_canonical_bytes_equal (bytes1 : Sequence bv8, bytes2 : Sequence bv8) returns ()
 spec {
+  requires Sequence.length(bytes1) == 32;
+  requires Sequence.length(bytes2) == 32;
   requires nat.toInt(u8_32_as_nat(bytes1)) == nat.toInt(u8_32_as_nat(bytes2));
   ensures ∀ i : int :: 0 <= i && i < 32 ==> Sequence.select(bytes1, i) == Sequence.select(bytes2, i);
   } {

@@ -170,6 +170,7 @@ program Boole;
    {
   Sequence.of_bv64[as_bv64(as_uint(as_bv64(as_uint(mul_c0_val(a, b))) & mask51) + as_uint(mul_c4_val(a, b) >> bv{128}(51)) mod 18446744073709551616 * 19) & mask51, as_bv64(as_uint(as_bv64(as_uint(mul_c1_val(a, b))) & mask51) + as_uint(as_bv64(as_uint(as_bv64(as_uint(mul_c0_val(a, b))) & mask51) + as_uint(mul_c4_val(a, b) >> bv{128}(51)) mod 18446744073709551616 * 19) >> bv{64}(51))), as_bv64(as_uint(mul_c2_val(a, b))) & mask51, as_bv64(as_uint(mul_c3_val(a, b))) & mask51, as_bv64(as_uint(mul_c4_val(a, b))) & mask51]
 }
+ axiom [mul_return_ret_len]: ∀ a : (Sequence bv64), b : (Sequence bv64) :: Sequence.length(mul_return(a, b)) == 5;
  function mul_term_product_bounds_spec (a : Sequence bv64, b : Sequence bv64, bound : bv64) : bool requires Sequence.length(a) == 5;
    requires Sequence.length(b) == 5;
    {
@@ -517,22 +518,22 @@ spec {
 };
  procedure lemma_mul_boundary (a : Sequence bv64, b : Sequence bv64) returns ()
 spec {
+  requires Sequence.length(a) == 5;
+  requires Sequence.length(b) == 5;
   requires ∀ i : int :: 0 <= i && i < 5 ==> Sequence.select(a, i) < bv{64}(1) << bv{64}(54);
   requires ∀ i : int :: 0 <= i && i < 5 ==> Sequence.select(b, i) < bv{64}(1) << bv{64}(54);
   ensures mul_boundary_spec(a, b);
   } {
-  assume Sequence.length(a) == 5;
-  assume Sequence.length(b) == 5;
   assume false;
   exit lemma_mul_boundary;
 };
  procedure lemma_mul_value (a : Sequence bv64, b : Sequence bv64) returns ()
 spec {
+  requires Sequence.length(a) == 5;
+  requires Sequence.length(b) == 5;
   requires mul_boundary_spec(a, b);
   ensures nat.toInt(nat.mod(u64_5_as_nat(mul_return(a, b)), p)) == nat.toInt(nat.mod(nat.mul(u64_5_as_nat(a), u64_5_as_nat(b)), p));
   } {
-  assume Sequence.length(a) == 5;
-  assume Sequence.length(b) == 5;
   assume false;
   exit lemma_mul_value;
 };

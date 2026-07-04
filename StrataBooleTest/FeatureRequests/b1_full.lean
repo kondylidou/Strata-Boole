@@ -79,6 +79,7 @@ program Boole;
 }
  function Arithmetic_Power2_pow2 (e : nat) : nat;
  function Bits_low_bits_mask (n : nat) : nat;
+ axiom [low_bits_mask_51_val]: nat.toInt(Bits_low_bits_mask(nat.fromInt(51))) == 2251799813685247;
  function u64_5_as_nat (limbs : Sequence bv64) : nat requires Sequence.length(limbs) == 5;
    {
   nat.add(nat.add(nat.add(nat.add(nat.fromInt(as_uint(Sequence.select(limbs, 0))), nat.mul(Arithmetic_Power2_pow2(nat.fromInt(51)), nat.fromInt(as_uint(Sequence.select(limbs, 1))))), nat.mul(Arithmetic_Power2_pow2(nat.fromInt(102)), nat.fromInt(as_uint(Sequence.select(limbs, 2))))), nat.mul(Arithmetic_Power2_pow2(nat.fromInt(153)), nat.fromInt(as_uint(Sequence.select(limbs, 3))))), nat.mul(Arithmetic_Power2_pow2(nat.fromInt(204)), nat.fromInt(as_uint(Sequence.select(limbs, 4)))))
@@ -169,6 +170,7 @@ program Boole;
    {
   Sequence.of_bv64[as_bv64(as_uint(as_bv64(as_uint(mul_c0_val(a, b))) & mask51) + as_uint(mul_c4_val(a, b) >> bv{128}(51)) mod 18446744073709551616 * 19) & mask51, as_bv64(as_uint(as_bv64(as_uint(mul_c1_val(a, b))) & mask51) + as_uint(as_bv64(as_uint(as_bv64(as_uint(mul_c0_val(a, b))) & mask51) + as_uint(mul_c4_val(a, b) >> bv{128}(51)) mod 18446744073709551616 * 19) >> bv{64}(51))), as_bv64(as_uint(mul_c2_val(a, b))) & mask51, as_bv64(as_uint(mul_c3_val(a, b))) & mask51, as_bv64(as_uint(mul_c4_val(a, b))) & mask51]
 }
+ axiom [mul_return_ret_len]: ∀ a : (Sequence bv64), b : (Sequence bv64) :: Sequence.length(mul_return(a, b)) == 5;
  function mul_term_product_bounds_spec (a : Sequence bv64, b : Sequence bv64, bound : bv64) : bool requires Sequence.length(a) == 5;
    requires Sequence.length(b) == 5;
    {
@@ -690,6 +692,8 @@ spec {
 };
  procedure lemma_mul_term_product_bounds (a : Sequence bv64, b : Sequence bv64, bound : bv64) returns ()
 spec {
+  requires Sequence.length(a) == 5;
+  requires Sequence.length(b) == 5;
   requires 19 * as_uint(bound) <= 18446744073709551615;
   requires ∀ i : int :: 0 <= i && i < 5 ==> Sequence.select(a, i) < bound;
   requires ∀ i : int :: 0 <= i && i < 5 ==> Sequence.select(b, i) < bound;
@@ -698,8 +702,6 @@ spec {
   var i : int;
   var j : int;
   var bound19 : bv64;
-  assume Sequence.length(a) == 5;
-  assume Sequence.length(b) == 5;
   bound19 := as_bv64(19 * as_uint(bound));
   call Arithmetic_Mul_lemma_mul_is_associative(19, as_uint(bound), as_uint(bound));
   assert as_uint(bound) * (19 * as_uint(bound)) == 19 * (as_uint(bound) * as_uint(bound));
@@ -713,13 +715,13 @@ spec {
 };
  procedure lemma_mul_c_i_0_bounded (a : Sequence bv64, b : Sequence bv64, bound : bv64) returns ()
 spec {
+  requires Sequence.length(a) == 5;
+  requires Sequence.length(b) == 5;
   requires 19 * as_uint(bound) <= 18446744073709551615;
   requires ∀ i : int :: 0 <= i && i < 5 ==> Sequence.select(a, i) < bound;
   requires ∀ i : int :: 0 <= i && i < 5 ==> Sequence.select(b, i) < bound;
   ensures mul_ci_0_val_boundaries(a, b, bound);
   } {
-  assume Sequence.length(a) == 5;
-  assume Sequence.length(b) == 5;
   call lemma_mul_term_product_bounds(a, b, bound);
   exit lemma_mul_c_i_0_bounded;
 };
@@ -743,6 +745,8 @@ spec {
 };
  procedure lemma_mul_c_i_shift_bounded (a : Sequence bv64, b : Sequence bv64, bound : bv64) returns ()
 spec {
+  requires Sequence.length(a) == 5;
+  requires Sequence.length(b) == 5;
   requires 19 * as_uint(bound) <= 18446744073709551615;
   requires 77 * (as_uint(bound) * as_uint(bound)) + 18446744073709551615 <= as_uint(as_bv128(18446744073709551615) << bv{128}(51));
   requires mul_ci_0_val_boundaries(a, b, bound);
@@ -753,8 +757,6 @@ spec {
   var tmp3 : bv128;
   var tmp4 : bv128;
   var tmp5 : bv128;
-  assume Sequence.length(a) == 5;
-  assume Sequence.length(b) == 5;
   tmp1 := mul_c0_val(a, b);
   call lemma_shr_51_fits_u64(tmp1);
   tmp2 := mul_c1_val(a, b);
@@ -777,6 +779,8 @@ spec {
 };
  procedure lemma_mul_boundary (a : Sequence bv64, b : Sequence bv64) returns ()
 spec {
+  requires Sequence.length(a) == 5;
+  requires Sequence.length(b) == 5;
   requires ∀ i : int :: 0 <= i && i < 5 ==> Sequence.select(a, i) < bv{64}(1) << bv{64}(54);
   requires ∀ i : int :: 0 <= i && i < 5 ==> Sequence.select(b, i) < bv{64}(1) << bv{64}(54);
   ensures mul_boundary_spec(a, b);
@@ -794,8 +798,6 @@ spec {
   var bound : bv64;
   var bound19 : bv64;
   var bound_sq : bv128;
-  assume Sequence.length(a) == 5;
-  assume Sequence.length(b) == 5;
   bound := bv{64}(1) << bv{64}(54);
   bound19 := as_bv64(19 * as_uint(bound));
   bound_sq := bv{128}(1) << bv{128}(108);
@@ -1026,6 +1028,8 @@ spec {
 };
  procedure lemma_u64_5_as_nat_product (a : Sequence bv64, b : Sequence bv64) returns ()
 spec {
+  requires Sequence.length(a) == 5;
+  requires Sequence.length(b) == 5;
   ensures nat.toInt(u64_5_as_nat(a)) * nat.toInt(u64_5_as_nat(b)) == nat.toInt(Arithmetic_Power2_pow2(nat.mul(nat.fromInt(8), nat.fromInt(51)))) * (as_uint(Sequence.select(a, 4)) * as_uint(Sequence.select(b, 4))) + nat.toInt(Arithmetic_Power2_pow2(nat.mul(nat.fromInt(7), nat.fromInt(51)))) * (as_uint(Sequence.select(a, 3)) * as_uint(Sequence.select(b, 4)) + as_uint(Sequence.select(a, 4)) * as_uint(Sequence.select(b, 3))) + nat.toInt(Arithmetic_Power2_pow2(nat.mul(nat.fromInt(6), nat.fromInt(51)))) * (as_uint(Sequence.select(a, 2)) * as_uint(Sequence.select(b, 4)) + as_uint(Sequence.select(a, 3)) * as_uint(Sequence.select(b, 3)) + as_uint(Sequence.select(a, 4)) * as_uint(Sequence.select(b, 2))) + nat.toInt(Arithmetic_Power2_pow2(nat.mul(nat.fromInt(5), nat.fromInt(51)))) * (as_uint(Sequence.select(a, 1)) * as_uint(Sequence.select(b, 4)) + as_uint(Sequence.select(a, 2)) * as_uint(Sequence.select(b, 3)) + as_uint(Sequence.select(a, 3)) * as_uint(Sequence.select(b, 2)) + as_uint(Sequence.select(a, 4)) * as_uint(Sequence.select(b, 1))) + nat.toInt(Arithmetic_Power2_pow2(nat.mul(nat.fromInt(4), nat.fromInt(51)))) * (as_uint(Sequence.select(a, 0)) * as_uint(Sequence.select(b, 4)) + as_uint(Sequence.select(a, 1)) * as_uint(Sequence.select(b, 3)) + as_uint(Sequence.select(a, 2)) * as_uint(Sequence.select(b, 2)) + as_uint(Sequence.select(a, 3)) * as_uint(Sequence.select(b, 1)) + as_uint(Sequence.select(a, 4)) * as_uint(Sequence.select(b, 0))) + nat.toInt(Arithmetic_Power2_pow2(nat.mul(nat.fromInt(3), nat.fromInt(51)))) * (as_uint(Sequence.select(a, 0)) * as_uint(Sequence.select(b, 3)) + as_uint(Sequence.select(a, 1)) * as_uint(Sequence.select(b, 2)) + as_uint(Sequence.select(a, 2)) * as_uint(Sequence.select(b, 1)) + as_uint(Sequence.select(a, 3)) * as_uint(Sequence.select(b, 0))) + nat.toInt(Arithmetic_Power2_pow2(nat.mul(nat.fromInt(2), nat.fromInt(51)))) * (as_uint(Sequence.select(a, 0)) * as_uint(Sequence.select(b, 2)) + as_uint(Sequence.select(a, 1)) * as_uint(Sequence.select(b, 1)) + as_uint(Sequence.select(a, 2)) * as_uint(Sequence.select(b, 0))) + nat.toInt(Arithmetic_Power2_pow2(nat.mul(nat.fromInt(1), nat.fromInt(51)))) * (as_uint(Sequence.select(a, 0)) * as_uint(Sequence.select(b, 1)) + as_uint(Sequence.select(a, 1)) * as_uint(Sequence.select(b, 0))) + as_uint(Sequence.select(a, 0)) * as_uint(Sequence.select(b, 0));
   ensures nat.toInt(nat.mod(nat.mul(u64_5_as_nat(a), u64_5_as_nat(b)), p)) == nat.toInt(nat.mod(nat.add(nat.fromInt(nat.toInt(Arithmetic_Power2_pow2(nat.mul(nat.fromInt(4), nat.fromInt(51)))) * (as_uint(Sequence.select(a, 0)) * as_uint(Sequence.select(b, 4)) + as_uint(Sequence.select(a, 1)) * as_uint(Sequence.select(b, 3)) + as_uint(Sequence.select(a, 2)) * as_uint(Sequence.select(b, 2)) + as_uint(Sequence.select(a, 3)) * as_uint(Sequence.select(b, 1)) + as_uint(Sequence.select(a, 4)) * as_uint(Sequence.select(b, 0))) + nat.toInt(Arithmetic_Power2_pow2(nat.mul(nat.fromInt(3), nat.fromInt(51)))) * (as_uint(Sequence.select(a, 0)) * as_uint(Sequence.select(b, 3)) + as_uint(Sequence.select(a, 1)) * as_uint(Sequence.select(b, 2)) + as_uint(Sequence.select(a, 2)) * as_uint(Sequence.select(b, 1)) + as_uint(Sequence.select(a, 3)) * as_uint(Sequence.select(b, 0)) + 19 * (as_uint(Sequence.select(a, 4)) * as_uint(Sequence.select(b, 4)))) + nat.toInt(Arithmetic_Power2_pow2(nat.mul(nat.fromInt(2), nat.fromInt(51)))) * (as_uint(Sequence.select(a, 0)) * as_uint(Sequence.select(b, 2)) + as_uint(Sequence.select(a, 1)) * as_uint(Sequence.select(b, 1)) + as_uint(Sequence.select(a, 2)) * as_uint(Sequence.select(b, 0)) + 19 * (as_uint(Sequence.select(a, 3)) * as_uint(Sequence.select(b, 4)) + as_uint(Sequence.select(a, 4)) * as_uint(Sequence.select(b, 3)))) + nat.toInt(Arithmetic_Power2_pow2(nat.mul(nat.fromInt(1), nat.fromInt(51)))) * (as_uint(Sequence.select(a, 0)) * as_uint(Sequence.select(b, 1)) + as_uint(Sequence.select(a, 1)) * as_uint(Sequence.select(b, 0)) + 19 * (as_uint(Sequence.select(a, 2)) * as_uint(Sequence.select(b, 4)) + as_uint(Sequence.select(a, 3)) * as_uint(Sequence.select(b, 3)) + as_uint(Sequence.select(a, 4)) * as_uint(Sequence.select(b, 2))))), nat.fromInt(as_uint(Sequence.select(a, 0)) * as_uint(Sequence.select(b, 0)) + 19 * (as_uint(Sequence.select(a, 1)) * as_uint(Sequence.select(b, 4)) + as_uint(Sequence.select(a, 2)) * as_uint(Sequence.select(b, 3)) + as_uint(Sequence.select(a, 3)) * as_uint(Sequence.select(b, 2)) + as_uint(Sequence.select(a, 4)) * as_uint(Sequence.select(b, 1))))), p));
   } {
@@ -1074,8 +1078,6 @@ spec {
   var c3 : int;
   var k : int;
   var sum : int;
-  assume Sequence.length(a) == 5;
-  assume Sequence.length(b) == 5;
   a0 := Sequence.select(a, 0);
   a1 := Sequence.select(a, 1);
   a2 := Sequence.select(a, 2);
@@ -1256,6 +1258,8 @@ spec {
 };
  procedure lemma_mul_value (a : Sequence bv64, b : Sequence bv64) returns ()
 spec {
+  requires Sequence.length(a) == 5;
+  requires Sequence.length(b) == 5;
   requires mul_boundary_spec(a, b);
   ensures nat.toInt(nat.mod(u64_5_as_nat(mul_return(a, b)), p)) == nat.toInt(nat.mod(nat.mul(u64_5_as_nat(a), u64_5_as_nat(b)), p));
   } {
@@ -1293,8 +1297,6 @@ spec {
   var s1 : nat;
   var s4 : nat;
   var reduced_sum : int;
-  assume Sequence.length(a) == 5;
-  assume Sequence.length(b) == 5;
   call Arithmetic_Power2_lemma2_to64_rest();
   call pow255_gt_19();
   assert nat.gt(p, nat.fromInt(0));

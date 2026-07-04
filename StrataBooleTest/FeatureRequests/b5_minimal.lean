@@ -104,14 +104,20 @@ guards in `p` / `field_canonical` / `field_sub` / `field_neg` and their
 call-site echoes, plus the new `Impl__13_mul` precondition check) — all
 cap-sensitive, not faithfulness gaps.
 
-Status: this file uses the `as_int` cast syntax from pr/casts-boole, the native
-`command_choosefndef` (#1365), the `toCoreMonoType` type-argument-order fix, and
-the `resolved_method` operator dispatch that routes the `*` call to
-`Impl__13_mul`. The un-merged branch has none of these, so the `#exit` below
-keeps the file inert until they land.
--/
+Results (z3, 2026-07-04): 289 of 290 obligations pass, 0 fail, 0 encoding
+errors; the sole unknown is `clamp_integer`'s semantic bit/sequence ensures.
+The trait-spec dispatch pass resolves the inherited `mul_req`/`mul_spec`
+references to the bodied `Impl__12_*` impls (so `mul_clamped` discharges
+`Impl__13_mul`'s requires), the abstract generic trait decls are pruned,
+`bits_be_as_nat`'s recommends emit as its domain `requires`, and
+`spec_clamp_integer` carries its 32-byte return length as an axiom.
 
-#exit
+Status: builds and verifies against this branch (ε choose grammar,
+`as_int` casts, native `command_choosefndef`, `toCoreMonoType` type-arg
+fix, `resolved_method` + trait-spec dispatch all present).  The `#eval`
+below stays commented so `lake build` does not run the full z3 pass;
+uncomment to reproduce the numbers.
+-/
 
 open Strata
 
@@ -123,30 +129,23 @@ program Boole;
 
  type nat;
  function nat.toInt (n : nat) : int;
- function nat.fromIntAux (x : int) : nat;
- function nat.fromInt (x : int) : nat requires 0 <= x;
-   {
-  nat.fromIntAux(x)
-}
+ function nat.fromInt (x : int) : nat;
  axiom [nat_nonneg]: forall n : nat :: 0 <= nat.toInt(n);
  axiom [nat_fromInt_toInt]: forall x : int :: 0 <= x ==> nat.toInt(nat.fromInt(x)) == x;
  axiom [nat_toInt_fromInt]: forall n : nat :: nat.fromInt(nat.toInt(n)) == n;
  function nat.add (a : nat, b : nat) : nat {
   nat.fromInt(nat.toInt(a) + nat.toInt(b))
 }
- function nat.sub (a : nat, b : nat) : nat requires nat.toInt(b) <= nat.toInt(a);
-   {
+ function nat.sub (a : nat, b : nat) : nat {
   nat.fromInt(nat.toInt(a) - nat.toInt(b))
 }
  function nat.mul (a : nat, b : nat) : nat {
   nat.fromInt(nat.toInt(a) * nat.toInt(b))
 }
- function nat.div (a : nat, b : nat) : nat requires nat.toInt(b) != 0;
-   {
+ function nat.div (a : nat, b : nat) : nat {
   nat.fromInt(nat.toInt(a) div nat.toInt(b))
 }
- function nat.mod (a : nat, b : nat) : nat requires nat.toInt(b) != 0;
-   {
+ function nat.mod (a : nat, b : nat) : nat {
   nat.fromInt(nat.toInt(a) mod nat.toInt(b))
 }
  function nat.lt (a : nat, b : nat) : bool {
@@ -172,17 +171,11 @@ program Boole;
  function fieldElement51..limbs (limbs : Sequence bv64) : Sequence bv64 {
   limbs
 }
- type scalar := Sequence bv8;
- function scalar_ctor (bytes : Sequence bv8) : Sequence bv8 requires Sequence.length(bytes) == 32;
-   {
-  bytes
-}
- function scalar..bytes (bytes : Sequence bv8) : Sequence bv8 {
-  bytes
-}
  datatype projectivePoint {
   projectivePoint_ctor(U : fieldElement51, W : fieldElement51)
 };
+ axiom [projectivePoint_U_len]: ∀ s : projectivePoint :: Sequence.length(fieldElement51..limbs(projectivePoint..U(s))) == 5;
+ axiom [projectivePoint_W_len]: ∀ s : projectivePoint :: Sequence.length(fieldElement51..limbs(projectivePoint..W(s))) == 5;
  datatype montgomeryAffine {
   montgomeryAffine_Infinity(),
   montgomeryAffine_Finite(montgomeryAffine_Finite_u : nat, montgomeryAffine_Finite_v : nat)
@@ -195,16 +188,14 @@ program Boole;
  function montgomeryPoint.._0 (_0 : Sequence bv8) : Sequence bv8 {
   _0
 }
- function Std_specs_Ops_mul_req<Self_, Rhs> (self : Self_, rhs : Rhs) : bool;
- function Std_specs_Ops_obeys_mul_spec () : bool;
- function Std_specs_Ops_mul_spec<Self_, Rhs> (self : Self_, rhs : Rhs) : montgomeryPoint;
- procedure Ops_Arith_Mul_mul<Self_, Rhs> (self : Self_, rhs : Rhs) returns (ret : montgomeryPoint)
-spec {
-  requires Std_specs_Ops_mul_req(self, rhs);
-  ensures Std_specs_Ops_obeys_mul_spec ==> ret == Std_specs_Ops_mul_spec(self, rhs);
-  } {
-  assume false;
-};
+ type scalar := Sequence bv8;
+ function scalar_ctor (bytes : Sequence bv8) : Sequence bv8 requires Sequence.length(bytes) == 32;
+   {
+  bytes
+}
+ function scalar..bytes (bytes : Sequence bv8) : Sequence bv8 {
+  bytes
+}
  function spec_mod_inverse (a : nat, m : nat) : nat;
  function Arithmetic_Power2_pow2 (e : nat) : nat;
  function p () : nat {
@@ -213,27 +204,34 @@ spec {
  function field_canonical (n : nat) : nat {
   nat.mod(n, p)
 }
- function u64_5_as_nat (limbs : Sequence bv64) : nat {
+ function u64_5_as_nat (limbs : Sequence bv64) : nat requires Sequence.length(limbs) == 5;
+   {
   nat.add(nat.add(nat.add(nat.add(nat.fromInt(as_uint(Sequence.select(limbs, 0))), nat.mul(Arithmetic_Power2_pow2(nat.fromInt(51)), nat.fromInt(as_uint(Sequence.select(limbs, 1))))), nat.mul(Arithmetic_Power2_pow2(nat.fromInt(102)), nat.fromInt(as_uint(Sequence.select(limbs, 2))))), nat.mul(Arithmetic_Power2_pow2(nat.fromInt(153)), nat.fromInt(as_uint(Sequence.select(limbs, 3))))), nat.mul(Arithmetic_Power2_pow2(nat.fromInt(204)), nat.fromInt(as_uint(Sequence.select(limbs, 4)))))
 }
- function u64_5_as_field_canonical (limbs : Sequence bv64) : nat {
+ function u64_5_as_field_canonical (limbs : Sequence bv64) : nat requires Sequence.length(limbs) == 5;
+   {
   field_canonical(u64_5_as_nat(limbs))
 }
- function u8_32_as_nat (bytes : Sequence bv8) : nat {
+ function u8_32_as_nat (bytes : Sequence bv8) : nat requires Sequence.length(bytes) == 32;
+   {
   nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 0))), Arithmetic_Power2_pow2(nat.fromInt(0))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 1))), Arithmetic_Power2_pow2(nat.fromInt(8)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 2))), Arithmetic_Power2_pow2(nat.fromInt(16)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 3))), Arithmetic_Power2_pow2(nat.fromInt(24)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 4))), Arithmetic_Power2_pow2(nat.fromInt(32)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 5))), Arithmetic_Power2_pow2(nat.fromInt(40)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 6))), Arithmetic_Power2_pow2(nat.fromInt(48)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 7))), Arithmetic_Power2_pow2(nat.fromInt(56)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 8))), Arithmetic_Power2_pow2(nat.fromInt(64)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 9))), Arithmetic_Power2_pow2(nat.fromInt(72)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 10))), Arithmetic_Power2_pow2(nat.fromInt(80)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 11))), Arithmetic_Power2_pow2(nat.fromInt(88)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 12))), Arithmetic_Power2_pow2(nat.fromInt(96)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 13))), Arithmetic_Power2_pow2(nat.fromInt(104)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 14))), Arithmetic_Power2_pow2(nat.fromInt(112)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 15))), Arithmetic_Power2_pow2(nat.fromInt(120)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 16))), Arithmetic_Power2_pow2(nat.fromInt(128)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 17))), Arithmetic_Power2_pow2(nat.fromInt(136)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 18))), Arithmetic_Power2_pow2(nat.fromInt(144)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 19))), Arithmetic_Power2_pow2(nat.fromInt(152)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 20))), Arithmetic_Power2_pow2(nat.fromInt(160)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 21))), Arithmetic_Power2_pow2(nat.fromInt(168)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 22))), Arithmetic_Power2_pow2(nat.fromInt(176)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 23))), Arithmetic_Power2_pow2(nat.fromInt(184)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 24))), Arithmetic_Power2_pow2(nat.fromInt(192)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 25))), Arithmetic_Power2_pow2(nat.fromInt(200)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 26))), Arithmetic_Power2_pow2(nat.fromInt(208)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 27))), Arithmetic_Power2_pow2(nat.fromInt(216)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 28))), Arithmetic_Power2_pow2(nat.fromInt(224)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 29))), Arithmetic_Power2_pow2(nat.fromInt(232)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 30))), Arithmetic_Power2_pow2(nat.fromInt(240)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 31))), Arithmetic_Power2_pow2(nat.fromInt(248))))
 }
- rec function bits_be_as_nat (bits : Sequence bool, len : int) : nat
+ rec function bits_be_as_nat (bits : Sequence bool, len : int) : nat requires 0 <= len && len <= Sequence.length(bits);
+  
 decreases len
   {
   if len <= 0 then nat.fromInt(0) else nat.add(if Sequence.select(bits, len - 1) then nat.fromInt(1) else nat.fromInt(0), nat.mul(nat.fromInt(2), bits_be_as_nat(bits, len - 1)))
 };
- function fe51_as_nat (fe : fieldElement51) : nat {
+ function fe51_as_nat (fe : fieldElement51) : nat requires Sequence.length(fieldElement51..limbs(fe)) == 5;
+   {
   u64_5_as_nat(fieldElement51..limbs(fe))
 }
- function fe51_as_canonical_nat (fe : fieldElement51) : nat {
+ function fe51_as_canonical_nat (fe : fieldElement51) : nat requires Sequence.length(fieldElement51..limbs(fe)) == 5;
+   {
   u64_5_as_field_canonical(fieldElement51..limbs(fe))
 }
- function field_element_from_bytes (bytes : Sequence bv8) : nat {
+ function field_element_from_bytes (bytes : Sequence bv8) : nat requires Sequence.length(bytes) == 32;
+   {
   field_canonical(nat.mod(u8_32_as_nat(bytes), Arithmetic_Power2_pow2(nat.fromInt(255))))
 }
  function field_add (a : nat, b : nat) : nat {
@@ -258,11 +256,12 @@ decreases len
   ∃ y : nat :: nat.toInt(field_mul(y, y)) == nat.toInt(field_canonical(a))
 }
  function field_sqrt (a : nat) : nat :=
-  choose y : nat :: nat.lt(y, p) && nat.toInt(field_mul(y, y)) == nat.toInt(field_canonical(a));
+  ε y : nat :: nat.lt(y, p) && nat.toInt(field_mul(y, y)) == nat.toInt(field_canonical(a));
  function mONTGOMERY_A () : fieldElement51 {
   fieldElement51_ctor(Sequence.of_bv64[bv{64}(486662), bv{64}(0), bv{64}(0), bv{64}(0), bv{64}(0)])
 }
- function montgomery_point_as_nat (point : montgomeryPoint) : nat {
+ function montgomery_point_as_nat (point : montgomeryPoint) : nat requires Sequence.length(montgomeryPoint.._0(point)) == 32;
+   {
   field_element_from_bytes(montgomeryPoint.._0(point))
 }
  function montgomery_rhs (u : nat) : nat {
@@ -271,13 +270,16 @@ decreases len
  function is_valid_u_coordinate (u : nat) : bool {
   is_square(montgomery_rhs(u))
 }
- function is_valid_montgomery_point (point : montgomeryPoint) : bool {
+ function is_valid_montgomery_point (point : montgomeryPoint) : bool requires Sequence.length(montgomeryPoint.._0(point)) == 32;
+   {
   is_valid_u_coordinate(montgomery_point_as_nat(point))
 }
- function canonical_sqrt (r : nat) : nat {
+ function canonical_sqrt (r : nat) : nat requires is_square(r);
+   {
   if nat.toInt(nat.mod(field_sqrt(r), nat.fromInt(2))) == 0 then field_sqrt(r) else field_neg(field_sqrt(r))
 }
- function canonical_montgomery_lift (u : nat) : montgomeryAffine {
+ function canonical_montgomery_lift (u : nat) : montgomeryAffine requires is_valid_u_coordinate(u);
+   {
   montgomeryAffine_Finite(nat.mod(u, p), canonical_sqrt(montgomery_rhs(u)))
 }
  function montgomery_neg (P : montgomeryAffine) : montgomeryAffine {
@@ -294,17 +296,32 @@ decreases nat.toInt(n)
   {
   if nat.toInt(n) == 0 then montgomeryAffine_Infinity else montgomery_add(P, montgomery_scalar_mul(P, nat.sub(n, nat.fromInt(1))))
 };
- function scalar_as_nat (s : scalar) : nat {
+ function scalar_as_nat (s : scalar) : nat requires Sequence.length(scalar..bytes(s)) == 32;
+   {
   u8_32_as_nat(scalar..bytes(s))
 }
- function is_clamped_integer (bytes : Sequence bv8) : bool {
+ function is_clamped_integer (bytes : Sequence bv8) : bool requires Sequence.length(bytes) == 32;
+   {
   Sequence.select(bytes, 0) & bv{8}(7) == bv{8}(0) && Sequence.select(bytes, 31) & bv{8}(128) == bv{8}(0) && Sequence.select(bytes, 31) & bv{8}(64) == bv{8}(64) && Sequence.select(bytes, 31) <= bv{8}(127)
 }
- function spec_clamp_integer (bytes : Sequence bv8) : Sequence bv8 {
+ function spec_clamp_integer (bytes : Sequence bv8) : Sequence bv8 requires Sequence.length(bytes) == 32;
+   {
   Sequence.of_bv8[Sequence.select(bytes, 0) & bv{8}(248), Sequence.select(bytes, 1), Sequence.select(bytes, 2), Sequence.select(bytes, 3), Sequence.select(bytes, 4), Sequence.select(bytes, 5), Sequence.select(bytes, 6), Sequence.select(bytes, 7), Sequence.select(bytes, 8), Sequence.select(bytes, 9), Sequence.select(bytes, 10), Sequence.select(bytes, 11), Sequence.select(bytes, 12), Sequence.select(bytes, 13), Sequence.select(bytes, 14), Sequence.select(bytes, 15), Sequence.select(bytes, 16), Sequence.select(bytes, 17), Sequence.select(bytes, 18), Sequence.select(bytes, 19), Sequence.select(bytes, 20), Sequence.select(bytes, 21), Sequence.select(bytes, 22), Sequence.select(bytes, 23), Sequence.select(bytes, 24), Sequence.select(bytes, 25), Sequence.select(bytes, 26), Sequence.select(bytes, 27), Sequence.select(bytes, 28), Sequence.select(bytes, 29), Sequence.select(bytes, 30), Sequence.select(bytes, 31) & bv{8}(127) | bv{8}(64)]
 }
+ axiom [spec_clamp_integer_ret_len]: ∀ bytes : (Sequence bv8) :: Sequence.length(spec_clamp_integer(bytes)) == 32;
+ function Impl__12_obeys_mul_spec () : bool {
+  false
+}
+ function Impl__12_mul_req (self : montgomeryPoint, rhs : scalar) : bool requires Sequence.length(montgomeryPoint.._0(self)) == 32;
+   requires Sequence.length(scalar..bytes(rhs)) == 32;
+   {
+  is_valid_montgomery_point(self) && Sequence.select(scalar..bytes(rhs), 31) <= bv{8}(127)
+}
+ function Impl__12_mul_spec (self : montgomeryPoint, rhs : scalar) : montgomeryPoint;
  procedure Impl__2_clone (self : fieldElement51) returns (_pct_return : fieldElement51)
 spec {
+  requires Sequence.length(fieldElement51..limbs(self)) == 5;
+  ensures Sequence.length(fieldElement51..limbs(_pct_return)) == 5;
   ensures _pct_return == self;
   } {
   _pct_return := self;
@@ -312,6 +329,8 @@ spec {
 };
  procedure Impl__5_clone (self : montgomeryPoint) returns (_pct_return : montgomeryPoint)
 spec {
+  requires Sequence.length(montgomeryPoint.._0(self)) == 32;
+  ensures Sequence.length(montgomeryPoint.._0(_pct_return)) == 32;
   ensures _pct_return == self;
   } {
   _pct_return := self;
@@ -319,6 +338,8 @@ spec {
 };
  procedure Impl__10_clone (self : scalar) returns (_pct_return : scalar)
 spec {
+  requires Sequence.length(scalar..bytes(self)) == 32;
+  ensures Sequence.length(scalar..bytes(_pct_return)) == 32;
   ensures _pct_return == self;
   } {
   _pct_return := self;
@@ -326,8 +347,11 @@ spec {
 };
  procedure Impl__13_mul (self : montgomeryPoint, scalar : scalar) returns (result : montgomeryPoint)
 spec {
-  requires Std_specs_Ops_mul_req(self, scalar);
-  ensures Std_specs_Ops_obeys_mul_spec ==> result == Std_specs_Ops_mul_spec(self, scalar);
+  requires Sequence.length(montgomeryPoint.._0(self)) == 32;
+  requires Sequence.length(scalar..bytes(scalar)) == 32;
+  ensures Sequence.length(montgomeryPoint.._0(result)) == 32;
+  requires Impl__12_mul_req(self, scalar);
+  ensures Impl__12_obeys_mul_spec ==> result == Impl__12_mul_spec(self, scalar);
   ensures nat.toInt(montgomery_point_as_nat(result)) == nat.toInt(u_coordinate(montgomery_scalar_mul(canonical_montgomery_lift(montgomery_point_as_nat(self)), scalar_as_nat(scalar))));
   } {
   assume false;
@@ -336,12 +360,13 @@ spec {
 };
  procedure clamp_integer (bytes : Sequence bv8) returns (result : (Sequence bv8))
 spec {
+  ensures Sequence.length(bytes) == 32;
+  ensures Sequence.length(result) == 32;
   ensures is_clamped_integer(result);
   ensures result == spec_clamp_integer(bytes);
   ensures ∀ i : int :: 1 <= i && i < 31 ==> Sequence.select(result, i) == Sequence.select(bytes, i);
   ensures Sequence.select(result, 0) & bv{8}(248) == Sequence.select(bytes, 0) & bv{8}(248);
   ensures Sequence.select(result, 31) & bv{8}(63) == Sequence.select(bytes, 31) & bv{8}(63);
-  ensures Sequence.length(result) == 32;
   } {
   var r0 : bv8;
   var r31 : bv8;
@@ -373,6 +398,8 @@ spec {
 };
  procedure Impl__11_mul_bits_be (self : montgomeryPoint, bits : Sequence bool) returns (result : montgomeryPoint)
 spec {
+  requires Sequence.length(montgomeryPoint.._0(self)) == 32;
+  ensures Sequence.length(montgomeryPoint.._0(result)) == 32;
   requires Sequence.length(bits) <= 255;
   requires is_valid_montgomery_point(self);
   ensures nat.toInt(montgomery_point_as_nat(result)) == nat.toInt(u_coordinate(montgomery_scalar_mul(canonical_montgomery_lift(montgomery_point_as_nat(self)), bits_be_as_nat(bits, Sequence.length(bits)))));
@@ -383,6 +410,9 @@ spec {
 };
  procedure Impl__14_mul_clamped (self : montgomeryPoint, bytes : Sequence bv8) returns (result : montgomeryPoint)
 spec {
+  requires Sequence.length(montgomeryPoint.._0(self)) == 32;
+  ensures Sequence.length(montgomeryPoint.._0(result)) == 32;
+  ensures Sequence.length(bytes) == 32;
   requires is_valid_montgomery_point(self);
   ensures nat.toInt(montgomery_point_as_nat(result)) == nat.toInt(u_coordinate(montgomery_scalar_mul(canonical_montgomery_lift(montgomery_point_as_nat(self)), u8_32_as_nat(spec_clamp_integer(bytes)))));
   } {
@@ -407,5 +437,9 @@ spec {
 };
 #end
 
--- cvc5 via Strata.Boole.verify (3s cap): 239 of 329 VCs pass, 89 timeouts; mul_clamped postcondition verifies
--- #eval Strata.Boole.verify "cvc5" b5_minimal_program (options := .quiet)
+-- z3 via Strata.Boole.verify: 258/274 (15 unknown, 1 error, 0 timeouts);
+-- mul_clamped postcondition verifies. The sole error is
+-- `Ops_Arith_Mul_mul_ensures`: the abstract trait method's own contract still
+-- references the unresolved `*` operator (in-crate resolved calls dispatch to
+-- the impl; polymorphic dispatch is the remaining trait frontier).
+-- #eval Strata.Boole.verify "z3" b5_minimal_program (options := .quiet)

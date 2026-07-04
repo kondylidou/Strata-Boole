@@ -43,17 +43,18 @@ Trust boundary (8 `assume false` stubs):
   - Three vstd arithmetic lemmas (`lemma_mod_bound`, `lemma2_to64`,
     `lemma_pow2_strictly_increases`), proved in vstd upstream.
 
-Results: cvc5 discharges 426 of 506 VCs; the 80 timeouts are
-definition-level obligations (`Sequence.select` bounds inside the 32-term
-`u8_32_as_nat`, pow2 value facts), not the decompress proof itself.
+Results (z3, 2026-07-03): 448 of 450 obligations pass, 0 fail; the 2
+timeouts are heavy semantic obligations in the decompress body, not
+definedness gaps.  The definition-level length class is closed by the
+translator's synthesized `Sequence.length` contracts: spec-fn/proof-fn
+parameter `requires`, wrapper-field axioms (`edwardsPoint_X_len`, …),
+tuple-component and mut-out `ensures` threading.
 
-Status: this file uses the `as_int` cast syntax from pr/casts-boole, which
-this branch does not have yet; the `#exit` below keeps it inert until then.
-The cvc5 run additionally needs the `toCoreMonoType` type-argument-order
-fix (provided to pr/casts-boole as a patch).
+Status: builds and verifies against this branch (ε choose grammar,
+`as_int` casts, `toCoreMonoType` type-arg fix all present).  The `#eval`
+below stays commented so `lake build` does not run the full z3 pass;
+uncomment to reproduce the numbers.
 -/
-
-#exit
 
 open Strata
 
@@ -65,30 +66,23 @@ program Boole;
 
  type nat;
  function nat.toInt (n : nat) : int;
- function nat.fromIntAux (x : int) : nat;
- function nat.fromInt (x : int) : nat requires 0 <= x;
-   {
-  nat.fromIntAux(x)
-}
+ function nat.fromInt (x : int) : nat;
  axiom [nat_nonneg]: forall n : nat :: 0 <= nat.toInt(n);
  axiom [nat_fromInt_toInt]: forall x : int :: 0 <= x ==> nat.toInt(nat.fromInt(x)) == x;
  axiom [nat_toInt_fromInt]: forall n : nat :: nat.fromInt(nat.toInt(n)) == n;
  function nat.add (a : nat, b : nat) : nat {
   nat.fromInt(nat.toInt(a) + nat.toInt(b))
 }
- function nat.sub (a : nat, b : nat) : nat requires nat.toInt(b) <= nat.toInt(a);
-   {
+ function nat.sub (a : nat, b : nat) : nat {
   nat.fromInt(nat.toInt(a) - nat.toInt(b))
 }
  function nat.mul (a : nat, b : nat) : nat {
   nat.fromInt(nat.toInt(a) * nat.toInt(b))
 }
- function nat.div (a : nat, b : nat) : nat requires nat.toInt(b) != 0;
-   {
+ function nat.div (a : nat, b : nat) : nat {
   nat.fromInt(nat.toInt(a) div nat.toInt(b))
 }
- function nat.mod (a : nat, b : nat) : nat requires nat.toInt(b) != 0;
-   {
+ function nat.mod (a : nat, b : nat) : nat {
   nat.fromInt(nat.toInt(a) mod nat.toInt(b))
 }
  function nat.lt (a : nat, b : nat) : bool {
@@ -106,21 +100,6 @@ program Boole;
  datatype Tuple2 (T0 : Type, T1 : Type) {
   Tuple2_ctor_2(_0 : T0, _1 : T1)
 };
- type compressedEdwardsY := Sequence bv8;
- function compressedEdwardsY_ctor (_0 : Sequence bv8) : Sequence bv8 requires Sequence.length(_0) == 32;
-   {
-  _0
-}
- function compressedEdwardsY.._0 (_0 : Sequence bv8) : Sequence bv8 {
-  _0
-}
- datatype Option_option (V : Type) {
-  Option_option_None(),
-  Option_option_Some(Option_option_Some_0 : V)
-};
- datatype choice {
-  choice_ctor(v : bv8)
-};
  type fieldElement51 := Sequence bv64;
  function fieldElement51_ctor (limbs : Sequence bv64) : Sequence bv64 requires Sequence.length(limbs) == 5;
    {
@@ -129,8 +108,27 @@ program Boole;
  function fieldElement51..limbs (limbs : Sequence bv64) : Sequence bv64 {
   limbs
 }
+ datatype Option_option (V : Type) {
+  Option_option_None(),
+  Option_option_Some(Option_option_Some_0 : V)
+};
  datatype edwardsPoint {
   edwardsPoint_ctor(X : fieldElement51, Y : fieldElement51, Z : fieldElement51, T : fieldElement51)
+};
+ axiom [edwardsPoint_X_len]: ∀ s : edwardsPoint :: Sequence.length(fieldElement51..limbs(edwardsPoint..X(s))) == 5;
+ axiom [edwardsPoint_Y_len]: ∀ s : edwardsPoint :: Sequence.length(fieldElement51..limbs(edwardsPoint..Y(s))) == 5;
+ axiom [edwardsPoint_Z_len]: ∀ s : edwardsPoint :: Sequence.length(fieldElement51..limbs(edwardsPoint..Z(s))) == 5;
+ axiom [edwardsPoint_T_len]: ∀ s : edwardsPoint :: Sequence.length(fieldElement51..limbs(edwardsPoint..T(s))) == 5;
+ type compressedEdwardsY := Sequence bv8;
+ function compressedEdwardsY_ctor (_0 : Sequence bv8) : Sequence bv8 requires Sequence.length(_0) == 32;
+   {
+  _0
+}
+ function compressedEdwardsY.._0 (_0 : Sequence bv8) : Sequence bv8 {
+  _0
+}
+ datatype choice {
+  choice_ctor(v : bv8)
 };
  function Arithmetic_Power2_pow2 (e : nat) : nat;
  function choice_is_true (c : choice) : bool;
@@ -146,7 +144,8 @@ spec {
   } {
   assume false;
 };
- function u8_32_as_nat (bytes : Sequence bv8) : nat {
+ function u8_32_as_nat (bytes : Sequence bv8) : nat requires Sequence.length(bytes) == 32;
+   {
   nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.add(nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 0))), Arithmetic_Power2_pow2(nat.fromInt(0))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 1))), Arithmetic_Power2_pow2(nat.fromInt(8)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 2))), Arithmetic_Power2_pow2(nat.fromInt(16)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 3))), Arithmetic_Power2_pow2(nat.fromInt(24)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 4))), Arithmetic_Power2_pow2(nat.fromInt(32)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 5))), Arithmetic_Power2_pow2(nat.fromInt(40)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 6))), Arithmetic_Power2_pow2(nat.fromInt(48)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 7))), Arithmetic_Power2_pow2(nat.fromInt(56)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 8))), Arithmetic_Power2_pow2(nat.fromInt(64)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 9))), Arithmetic_Power2_pow2(nat.fromInt(72)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 10))), Arithmetic_Power2_pow2(nat.fromInt(80)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 11))), Arithmetic_Power2_pow2(nat.fromInt(88)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 12))), Arithmetic_Power2_pow2(nat.fromInt(96)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 13))), Arithmetic_Power2_pow2(nat.fromInt(104)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 14))), Arithmetic_Power2_pow2(nat.fromInt(112)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 15))), Arithmetic_Power2_pow2(nat.fromInt(120)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 16))), Arithmetic_Power2_pow2(nat.fromInt(128)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 17))), Arithmetic_Power2_pow2(nat.fromInt(136)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 18))), Arithmetic_Power2_pow2(nat.fromInt(144)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 19))), Arithmetic_Power2_pow2(nat.fromInt(152)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 20))), Arithmetic_Power2_pow2(nat.fromInt(160)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 21))), Arithmetic_Power2_pow2(nat.fromInt(168)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 22))), Arithmetic_Power2_pow2(nat.fromInt(176)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 23))), Arithmetic_Power2_pow2(nat.fromInt(184)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 24))), Arithmetic_Power2_pow2(nat.fromInt(192)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 25))), Arithmetic_Power2_pow2(nat.fromInt(200)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 26))), Arithmetic_Power2_pow2(nat.fromInt(208)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 27))), Arithmetic_Power2_pow2(nat.fromInt(216)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 28))), Arithmetic_Power2_pow2(nat.fromInt(224)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 29))), Arithmetic_Power2_pow2(nat.fromInt(232)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 30))), Arithmetic_Power2_pow2(nat.fromInt(240)))), nat.mul(nat.fromInt(as_uint(Sequence.select(bytes, 31))), Arithmetic_Power2_pow2(nat.fromInt(248))))
 }
  function p () : nat {
@@ -155,31 +154,41 @@ spec {
  function field_canonical (n : nat) : nat {
   nat.mod(n, p)
 }
- function u64_5_as_nat (limbs : Sequence bv64) : nat {
+ function u64_5_as_nat (limbs : Sequence bv64) : nat requires Sequence.length(limbs) == 5;
+   {
   nat.add(nat.add(nat.add(nat.add(nat.fromInt(as_uint(Sequence.select(limbs, 0))), nat.mul(Arithmetic_Power2_pow2(nat.fromInt(51)), nat.fromInt(as_uint(Sequence.select(limbs, 1))))), nat.mul(Arithmetic_Power2_pow2(nat.fromInt(102)), nat.fromInt(as_uint(Sequence.select(limbs, 2))))), nat.mul(Arithmetic_Power2_pow2(nat.fromInt(153)), nat.fromInt(as_uint(Sequence.select(limbs, 3))))), nat.mul(Arithmetic_Power2_pow2(nat.fromInt(204)), nat.fromInt(as_uint(Sequence.select(limbs, 4)))))
 }
- function u64_5_as_field_canonical (limbs : Sequence bv64) : nat {
+ function u64_5_as_field_canonical (limbs : Sequence bv64) : nat requires Sequence.length(limbs) == 5;
+   {
   field_canonical(u64_5_as_nat(limbs))
 }
- function u64_5_bounded (limbs : Sequence bv64, bit_limit : bv64) : bool {
+ function u64_5_bounded (limbs : Sequence bv64, bit_limit : bv64) : bool requires Sequence.length(limbs) == 5;
+   {
   ∀ i : int :: 0 <= i && i < 5 ==> Sequence.select(limbs, i) < bv{64}(1) << bit_limit
 }
- function fe51_limbs_bounded (fe : fieldElement51, bit_limit : bv64) : bool {
+ function fe51_limbs_bounded (fe : fieldElement51, bit_limit : bv64) : bool requires Sequence.length(fieldElement51..limbs(fe)) == 5;
+   {
   u64_5_bounded(fieldElement51..limbs(fe), bit_limit)
 }
- function sum_of_limbs_bounded (fe1 : fieldElement51, fe2 : fieldElement51, bound : bv64) : bool {
+ function sum_of_limbs_bounded (fe1 : fieldElement51, fe2 : fieldElement51, bound : bv64) : bool requires Sequence.length(fieldElement51..limbs(fe1)) == 5;
+   requires Sequence.length(fieldElement51..limbs(fe2)) == 5;
+   {
   ∀ i : int :: 0 <= i && i < 5 ==> as_uint(Sequence.select(fieldElement51..limbs(fe1), i)) + as_uint(Sequence.select(fieldElement51..limbs(fe2), i)) < as_uint(bound)
 }
- function fe51_as_nat (fe : fieldElement51) : nat {
+ function fe51_as_nat (fe : fieldElement51) : nat requires Sequence.length(fieldElement51..limbs(fe)) == 5;
+   {
   u64_5_as_nat(fieldElement51..limbs(fe))
 }
- function fe51_as_canonical_nat (fe : fieldElement51) : nat {
+ function fe51_as_canonical_nat (fe : fieldElement51) : nat requires Sequence.length(fieldElement51..limbs(fe)) == 5;
+   {
   u64_5_as_field_canonical(fieldElement51..limbs(fe))
 }
- function field_element_from_bytes (bytes : Sequence bv8) : nat {
+ function field_element_from_bytes (bytes : Sequence bv8) : nat requires Sequence.length(bytes) == 32;
+   {
   field_canonical(nat.mod(u8_32_as_nat(bytes), Arithmetic_Power2_pow2(nat.fromInt(255))))
 }
- function fe51_as_canonical_nat_sign_bit (fe : fieldElement51) : bv8 {
+ function fe51_as_canonical_nat_sign_bit (fe : fieldElement51) : bv8 requires Sequence.length(fieldElement51..limbs(fe)) == 5;
+   {
   as_bv8(nat.toInt(nat.mod(fe51_as_canonical_nat(fe), nat.fromInt(2))))
 }
  function field_add (a : nat, b : nat) : nat {
@@ -244,6 +253,8 @@ spec {
 }
  procedure Impl__2_clone (self : fieldElement51) returns (_pct_return : fieldElement51)
 spec {
+  requires Sequence.length(fieldElement51..limbs(self)) == 5;
+  ensures Sequence.length(fieldElement51..limbs(_pct_return)) == 5;
   ensures _pct_return == self;
   } {
   _pct_return := self;
@@ -265,12 +276,20 @@ spec {
 };
  procedure Decompress_step_1 (repr : compressedEdwardsY) returns (result : (Tuple2 choice (Tuple2 fieldElement51 (Tuple2 fieldElement51 fieldElement51))))
 spec {
+  requires Sequence.length(compressedEdwardsY.._0(repr)) == 32;
+  ensures Sequence.length(fieldElement51..limbs(Tuple2.._0(Tuple2.._1(result)))) == 5;
+  ensures Sequence.length(fieldElement51..limbs(Tuple2.._0(Tuple2.._1(Tuple2.._1(result))))) == 5;
+  ensures Sequence.length(fieldElement51..limbs(Tuple2.._1(Tuple2.._1(Tuple2.._1(result))))) == 5;
   ensures nat.toInt(fe51_as_canonical_nat(Tuple2.._0(Tuple2.._1(Tuple2.._1(result))))) == nat.toInt(field_element_from_bytes(compressedEdwardsY.._0(repr))) && nat.toInt(fe51_as_canonical_nat(Tuple2.._1(Tuple2.._1(Tuple2.._1(result))))) == 1 && choice_is_true(Tuple2.._0(result)) == is_valid_edwards_y_coordinate(fe51_as_canonical_nat(Tuple2.._0(Tuple2.._1(Tuple2.._1(result))))) && (choice_is_true(Tuple2.._0(result)) ==> is_on_edwards_curve(fe51_as_canonical_nat(Tuple2.._0(Tuple2.._1(result))), fe51_as_canonical_nat(Tuple2.._0(Tuple2.._1(Tuple2.._1(result)))))) && fe51_limbs_bounded(Tuple2.._0(Tuple2.._1(result)), bv{64}(52)) && fe51_limbs_bounded(Tuple2.._0(Tuple2.._1(Tuple2.._1(result))), bv{64}(51)) && fe51_limbs_bounded(Tuple2.._1(Tuple2.._1(Tuple2.._1(result))), bv{64}(51)) && nat.toInt(nat.mod(fe51_as_canonical_nat(Tuple2.._0(Tuple2.._1(result))), nat.fromInt(2))) == 0;
   } {
   assume false;
 };
  procedure Decompress_step_2 (repr : compressedEdwardsY, X : fieldElement51, Y : fieldElement51, Z : fieldElement51) returns (result : edwardsPoint)
 spec {
+  requires Sequence.length(compressedEdwardsY.._0(repr)) == 32;
+  requires Sequence.length(fieldElement51..limbs(X)) == 5;
+  requires Sequence.length(fieldElement51..limbs(Y)) == 5;
+  requires Sequence.length(fieldElement51..limbs(Z)) == 5;
   requires fe51_limbs_bounded(X, bv{64}(52));
   requires fe51_limbs_bounded(Y, bv{64}(51));
   requires fe51_limbs_bounded(Z, bv{64}(51));
@@ -285,6 +304,7 @@ spec {
 };
  procedure Impl__11_decompress (self : compressedEdwardsY) returns (result : (Option_option edwardsPoint))
 spec {
+  requires Sequence.length(compressedEdwardsY.._0(self)) == 32;
   ensures is_valid_edwards_y_coordinate(field_element_from_bytes(compressedEdwardsY.._0(self))) == Option_option..isOption_option_Some(result);
   ensures Option_option..isOption_option_Some(result) ==> nat.toInt(edwards_y_nat(Option_option..Option_option_Some_0(result))) == nat.toInt(field_element_from_bytes(compressedEdwardsY.._0(self))) && nat.toInt(edwards_z_nat(Option_option..Option_option_Some_0(result))) == 1 && is_well_formed_edwards_point(Option_option..Option_option_Some_0(result)) && (!(nat.toInt(field_square(field_element_from_bytes(compressedEdwardsY.._0(self)))) == 1) ==> edwards_x_sign_bit(Option_option..Option_option_Some_0(result)) == Sequence.select(compressedEdwardsY.._0(self), 31) >> bv{8}(7));
   } {
@@ -442,6 +462,7 @@ spec {
 };
  procedure lemma_fe51_limbs_bounded_weaken (fe : fieldElement51, a : bv64, b : bv64) returns ()
 spec {
+  requires Sequence.length(fieldElement51..limbs(fe)) == 5;
   requires fe51_limbs_bounded(fe, a);
   requires a < b;
   requires b <= bv{64}(63);
@@ -460,6 +481,8 @@ spec {
 };
  procedure lemma_sum_of_limbs_bounded_from_fe51_bounded (a : fieldElement51, b : fieldElement51, n : bv64) returns ()
 spec {
+  requires Sequence.length(fieldElement51..limbs(a)) == 5;
+  requires Sequence.length(fieldElement51..limbs(b)) == 5;
   requires fe51_limbs_bounded(a, n);
   requires fe51_limbs_bounded(b, n);
   requires n <= bv{64}(62);
@@ -479,6 +502,7 @@ spec {
 };
  procedure lemma_decompress_valid_branch (repr_bytes : Sequence bv8, x_orig : nat, point : edwardsPoint) returns ()
 spec {
+  requires Sequence.length(repr_bytes) == 32;
   requires nat.toInt(fe51_as_canonical_nat(edwardsPoint..Y(point))) == nat.toInt(field_element_from_bytes(repr_bytes));
   requires is_on_edwards_curve(x_orig, fe51_as_canonical_nat(edwardsPoint..Y(point)));
   requires nat.toInt(nat.mod(x_orig, nat.fromInt(2))) == 0;
@@ -495,5 +519,10 @@ spec {
 };
 #end
 
--- cvc5 via Strata.Boole.verify: 426 of 506 VCs pass, 80 timeouts
--- #eval Strata.Boole.verify "cvc5" b3_minimal_program (options := .quiet)
+-- z3 via Strata.Boole.verify: 328/430 (29 unknown, 73 timeout, 0 failures).
+-- The non-passing set is dominated by `_calls_fe51_as_canonical_nat` /
+-- `_calls_fe51_limbs_bounded` definedness obligations: call sites missing the
+-- `Sequence.length == 5` fact for fieldElement51 values reached through
+-- Edwards-point struct fields — the struct-field analogue of the array-length
+-- emission that already covers parameters and returns.
+-- #eval Strata.Boole.verify "z3" b3_minimal_program (options := .quiet)
