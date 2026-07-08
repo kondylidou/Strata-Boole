@@ -170,7 +170,7 @@ program Boole;
    {
   Sequence.of_bv64[as_bv64(as_uint(as_bv64(as_uint(mul_c0_val(a, b))) & mask51) + as_uint(mul_c4_val(a, b) >> bv{128}(51)) mod 18446744073709551616 * 19) & mask51, as_bv64(as_uint(as_bv64(as_uint(mul_c1_val(a, b))) & mask51) + as_uint(as_bv64(as_uint(as_bv64(as_uint(mul_c0_val(a, b))) & mask51) + as_uint(mul_c4_val(a, b) >> bv{128}(51)) mod 18446744073709551616 * 19) >> bv{64}(51))), as_bv64(as_uint(mul_c2_val(a, b))) & mask51, as_bv64(as_uint(mul_c3_val(a, b))) & mask51, as_bv64(as_uint(mul_c4_val(a, b))) & mask51]
 }
- axiom [mul_return_ret_len]: ∀ a : (Sequence bv64), b : (Sequence bv64) :: Sequence.length(mul_return(a, b)) == 5;
+ axiom [mul_return_ret_len]: ∀ a : (Sequence bv64), b : (Sequence bv64) :: Sequence.length(a) == 5 && Sequence.length(b) == 5 ==> Sequence.length(mul_return(a, b)) == 5;
  function mul_term_product_bounds_spec (a : Sequence bv64, b : Sequence bv64, bound : bv64) : bool requires Sequence.length(a) == 5;
    requires Sequence.length(b) == 5;
    {

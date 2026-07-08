@@ -104,7 +104,7 @@ guards in `p` / `field_canonical` / `field_sub` / `field_neg` and their
 call-site echoes, plus the new `Impl__13_mul` precondition check) — all
 cap-sensitive, not faithfulness gaps.
 
-Results (z3, 2026-07-04): 289 of 290 obligations pass, 0 fail, 0 encoding
+Results (z3, 2026-07-06): 289 of 290 obligations pass, 0 fail, 0 encoding
 errors; the sole unknown is `clamp_integer`'s semantic bit/sequence ensures.
 The trait-spec dispatch pass resolves the inherited `mul_req`/`mul_spec`
 references to the bodied `Impl__12_*` impls (so `mul_clamped` discharges
@@ -174,8 +174,6 @@ program Boole;
  datatype projectivePoint {
   projectivePoint_ctor(U : fieldElement51, W : fieldElement51)
 };
- axiom [projectivePoint_U_len]: ∀ s : projectivePoint :: Sequence.length(fieldElement51..limbs(projectivePoint..U(s))) == 5;
- axiom [projectivePoint_W_len]: ∀ s : projectivePoint :: Sequence.length(fieldElement51..limbs(projectivePoint..W(s))) == 5;
  datatype montgomeryAffine {
   montgomeryAffine_Infinity(),
   montgomeryAffine_Finite(montgomeryAffine_Finite_u : nat, montgomeryAffine_Finite_v : nat)
@@ -308,7 +306,7 @@ decreases nat.toInt(n)
    {
   Sequence.of_bv8[Sequence.select(bytes, 0) & bv{8}(248), Sequence.select(bytes, 1), Sequence.select(bytes, 2), Sequence.select(bytes, 3), Sequence.select(bytes, 4), Sequence.select(bytes, 5), Sequence.select(bytes, 6), Sequence.select(bytes, 7), Sequence.select(bytes, 8), Sequence.select(bytes, 9), Sequence.select(bytes, 10), Sequence.select(bytes, 11), Sequence.select(bytes, 12), Sequence.select(bytes, 13), Sequence.select(bytes, 14), Sequence.select(bytes, 15), Sequence.select(bytes, 16), Sequence.select(bytes, 17), Sequence.select(bytes, 18), Sequence.select(bytes, 19), Sequence.select(bytes, 20), Sequence.select(bytes, 21), Sequence.select(bytes, 22), Sequence.select(bytes, 23), Sequence.select(bytes, 24), Sequence.select(bytes, 25), Sequence.select(bytes, 26), Sequence.select(bytes, 27), Sequence.select(bytes, 28), Sequence.select(bytes, 29), Sequence.select(bytes, 30), Sequence.select(bytes, 31) & bv{8}(127) | bv{8}(64)]
 }
- axiom [spec_clamp_integer_ret_len]: ∀ bytes : (Sequence bv8) :: Sequence.length(spec_clamp_integer(bytes)) == 32;
+ axiom [spec_clamp_integer_ret_len]: ∀ bytes : (Sequence bv8) :: Sequence.length(bytes) == 32 ==> Sequence.length(spec_clamp_integer(bytes)) == 32;
  function Impl__12_obeys_mul_spec () : bool {
   false
 }
@@ -404,6 +402,7 @@ spec {
   requires is_valid_montgomery_point(self);
   ensures nat.toInt(montgomery_point_as_nat(result)) == nat.toInt(u_coordinate(montgomery_scalar_mul(canonical_montgomery_lift(montgomery_point_as_nat(self)), bits_be_as_nat(bits, Sequence.length(bits)))));
   } {
+  assume Sequence.length(bits) <= 18446744073709551615;
   assume false;
   result := montgomeryPoint_ctor(Sequence.of_bv8[bv{8}(0), bv{8}(0), bv{8}(0), bv{8}(0), bv{8}(0), bv{8}(0), bv{8}(0), bv{8}(0), bv{8}(0), bv{8}(0), bv{8}(0), bv{8}(0), bv{8}(0), bv{8}(0), bv{8}(0), bv{8}(0), bv{8}(0), bv{8}(0), bv{8}(0), bv{8}(0), bv{8}(0), bv{8}(0), bv{8}(0), bv{8}(0), bv{8}(0), bv{8}(0), bv{8}(0), bv{8}(0), bv{8}(0), bv{8}(0), bv{8}(0), bv{8}(0)]);
   exit Impl__11_mul_bits_be;

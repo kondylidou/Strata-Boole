@@ -43,12 +43,16 @@ Trust boundary (8 `assume false` stubs):
   - Three vstd arithmetic lemmas (`lemma_mod_bound`, `lemma2_to64`,
     `lemma_pow2_strictly_increases`), proved in vstd upstream.
 
-Results (z3, 2026-07-03): 448 of 450 obligations pass, 0 fail; the 2
+Results (z3, 2026-07-06): 672 of 674 obligations pass, 0 fail; the 2
 timeouts are heavy semantic obligations in the decompress body, not
 definedness gaps.  The definition-level length class is closed by the
 translator's synthesized `Sequence.length` contracts: spec-fn/proof-fn
-parameter `requires`, wrapper-field axioms (`edwardsPoint_X_len`, …),
-tuple-component and mut-out `ensures` threading.
+parameter `requires` and boundary `requires`/`ensures` threading through
+struct-field selector paths, enum payloads (under variant-tester guards),
+tuples and mut-outs.  No global per-field length axioms — the datatypes
+are total, so `∀ s :: length(…(s)) == N` would be refuted by a
+wrong-length constructor application; the threading replaces them, which
+is also why the obligation count grew from the earlier 450.
 
 Status: builds and verifies against this branch (ε choose grammar,
 `as_int` casts, `toCoreMonoType` type-arg fix all present).  The `#eval`
@@ -115,10 +119,6 @@ program Boole;
  datatype edwardsPoint {
   edwardsPoint_ctor(X : fieldElement51, Y : fieldElement51, Z : fieldElement51, T : fieldElement51)
 };
- axiom [edwardsPoint_X_len]: ∀ s : edwardsPoint :: Sequence.length(fieldElement51..limbs(edwardsPoint..X(s))) == 5;
- axiom [edwardsPoint_Y_len]: ∀ s : edwardsPoint :: Sequence.length(fieldElement51..limbs(edwardsPoint..Y(s))) == 5;
- axiom [edwardsPoint_Z_len]: ∀ s : edwardsPoint :: Sequence.length(fieldElement51..limbs(edwardsPoint..Z(s))) == 5;
- axiom [edwardsPoint_T_len]: ∀ s : edwardsPoint :: Sequence.length(fieldElement51..limbs(edwardsPoint..T(s))) == 5;
  type compressedEdwardsY := Sequence bv8;
  function compressedEdwardsY_ctor (_0 : Sequence bv8) : Sequence bv8 requires Sequence.length(_0) == 32;
    {
@@ -218,37 +218,77 @@ spec {
  function is_valid_edwards_y_coordinate (y : nat) : bool {
   if nat.toInt(nat.mod(field_sub(field_square(y), nat.fromInt(1)), p)) == 0 then true else if nat.toInt(nat.mod(field_add(field_mul(fe51_as_canonical_nat(eDWARDS_D), field_square(y)), nat.fromInt(1)), p)) == 0 then false else ∃ r : nat :: nat.lt(r, p) && (nat.toInt(field_mul(field_square(r), field_add(field_mul(fe51_as_canonical_nat(eDWARDS_D), field_square(y)), nat.fromInt(1)))) == nat.toInt(nat.mod(field_sub(field_square(y), nat.fromInt(1)), p)) || nat.toInt(field_mul(field_square(r), field_add(field_mul(fe51_as_canonical_nat(eDWARDS_D), field_square(y)), nat.fromInt(1)))) == nat.toInt(field_neg(field_sub(field_square(y), nat.fromInt(1)))))
 }
- function edwards_x (point : edwardsPoint) : fieldElement51 {
+ function edwards_x (point : edwardsPoint) : fieldElement51 requires Sequence.length(fieldElement51..limbs(edwardsPoint..X(point))) == 5;
+   requires Sequence.length(fieldElement51..limbs(edwardsPoint..Y(point))) == 5;
+   requires Sequence.length(fieldElement51..limbs(edwardsPoint..Z(point))) == 5;
+   requires Sequence.length(fieldElement51..limbs(edwardsPoint..T(point))) == 5;
+   {
   edwardsPoint..X(point)
 }
- function edwards_y (point : edwardsPoint) : fieldElement51 {
+ function edwards_y (point : edwardsPoint) : fieldElement51 requires Sequence.length(fieldElement51..limbs(edwardsPoint..X(point))) == 5;
+   requires Sequence.length(fieldElement51..limbs(edwardsPoint..Y(point))) == 5;
+   requires Sequence.length(fieldElement51..limbs(edwardsPoint..Z(point))) == 5;
+   requires Sequence.length(fieldElement51..limbs(edwardsPoint..T(point))) == 5;
+   {
   edwardsPoint..Y(point)
 }
- function edwards_z (point : edwardsPoint) : fieldElement51 {
+ function edwards_z (point : edwardsPoint) : fieldElement51 requires Sequence.length(fieldElement51..limbs(edwardsPoint..X(point))) == 5;
+   requires Sequence.length(fieldElement51..limbs(edwardsPoint..Y(point))) == 5;
+   requires Sequence.length(fieldElement51..limbs(edwardsPoint..Z(point))) == 5;
+   requires Sequence.length(fieldElement51..limbs(edwardsPoint..T(point))) == 5;
+   {
   edwardsPoint..Z(point)
 }
- function edwards_t (point : edwardsPoint) : fieldElement51 {
+ function edwards_t (point : edwardsPoint) : fieldElement51 requires Sequence.length(fieldElement51..limbs(edwardsPoint..X(point))) == 5;
+   requires Sequence.length(fieldElement51..limbs(edwardsPoint..Y(point))) == 5;
+   requires Sequence.length(fieldElement51..limbs(edwardsPoint..Z(point))) == 5;
+   requires Sequence.length(fieldElement51..limbs(edwardsPoint..T(point))) == 5;
+   {
   edwardsPoint..T(point)
 }
  function is_valid_extended_edwards_point (x : nat, y : nat, z : nat, t : nat) : bool {
   !(nat.toInt(field_canonical(z)) == 0) && is_on_edwards_curve_projective(x, y, z) && nat.toInt(field_mul(x, y)) == nat.toInt(field_mul(z, t))
 }
- function is_valid_edwards_point (point : edwardsPoint) : bool {
+ function is_valid_edwards_point (point : edwardsPoint) : bool requires Sequence.length(fieldElement51..limbs(edwardsPoint..X(point))) == 5;
+   requires Sequence.length(fieldElement51..limbs(edwardsPoint..Y(point))) == 5;
+   requires Sequence.length(fieldElement51..limbs(edwardsPoint..Z(point))) == 5;
+   requires Sequence.length(fieldElement51..limbs(edwardsPoint..T(point))) == 5;
+   {
   is_valid_extended_edwards_point(fe51_as_canonical_nat(edwards_x(point)), fe51_as_canonical_nat(edwards_y(point)), fe51_as_canonical_nat(edwards_z(point)), fe51_as_canonical_nat(edwards_t(point)))
 }
- function edwards_point_limbs_bounded (point : edwardsPoint) : bool {
+ function edwards_point_limbs_bounded (point : edwardsPoint) : bool requires Sequence.length(fieldElement51..limbs(edwardsPoint..X(point))) == 5;
+   requires Sequence.length(fieldElement51..limbs(edwardsPoint..Y(point))) == 5;
+   requires Sequence.length(fieldElement51..limbs(edwardsPoint..Z(point))) == 5;
+   requires Sequence.length(fieldElement51..limbs(edwardsPoint..T(point))) == 5;
+   {
   fe51_limbs_bounded(edwards_x(point), bv{64}(52)) && fe51_limbs_bounded(edwards_y(point), bv{64}(52)) && fe51_limbs_bounded(edwards_z(point), bv{64}(52)) && fe51_limbs_bounded(edwards_t(point), bv{64}(52))
 }
- function is_well_formed_edwards_point (point : edwardsPoint) : bool {
+ function is_well_formed_edwards_point (point : edwardsPoint) : bool requires Sequence.length(fieldElement51..limbs(edwardsPoint..X(point))) == 5;
+   requires Sequence.length(fieldElement51..limbs(edwardsPoint..Y(point))) == 5;
+   requires Sequence.length(fieldElement51..limbs(edwardsPoint..Z(point))) == 5;
+   requires Sequence.length(fieldElement51..limbs(edwardsPoint..T(point))) == 5;
+   {
   is_valid_edwards_point(point) && edwards_point_limbs_bounded(point) && sum_of_limbs_bounded(edwards_y(point), edwards_x(point), bv{64}(18446744073709551615))
 }
- function edwards_y_nat (point : edwardsPoint) : nat {
+ function edwards_y_nat (point : edwardsPoint) : nat requires Sequence.length(fieldElement51..limbs(edwardsPoint..X(point))) == 5;
+   requires Sequence.length(fieldElement51..limbs(edwardsPoint..Y(point))) == 5;
+   requires Sequence.length(fieldElement51..limbs(edwardsPoint..Z(point))) == 5;
+   requires Sequence.length(fieldElement51..limbs(edwardsPoint..T(point))) == 5;
+   {
   fe51_as_canonical_nat(edwards_y(point))
 }
- function edwards_z_nat (point : edwardsPoint) : nat {
+ function edwards_z_nat (point : edwardsPoint) : nat requires Sequence.length(fieldElement51..limbs(edwardsPoint..X(point))) == 5;
+   requires Sequence.length(fieldElement51..limbs(edwardsPoint..Y(point))) == 5;
+   requires Sequence.length(fieldElement51..limbs(edwardsPoint..Z(point))) == 5;
+   requires Sequence.length(fieldElement51..limbs(edwardsPoint..T(point))) == 5;
+   {
   fe51_as_canonical_nat(edwards_z(point))
 }
- function edwards_x_sign_bit (point : edwardsPoint) : bv8 {
+ function edwards_x_sign_bit (point : edwardsPoint) : bv8 requires Sequence.length(fieldElement51..limbs(edwardsPoint..X(point))) == 5;
+   requires Sequence.length(fieldElement51..limbs(edwardsPoint..Y(point))) == 5;
+   requires Sequence.length(fieldElement51..limbs(edwardsPoint..Z(point))) == 5;
+   requires Sequence.length(fieldElement51..limbs(edwardsPoint..T(point))) == 5;
+   {
   fe51_as_canonical_nat_sign_bit(edwards_x(point))
 }
  procedure Impl__2_clone (self : fieldElement51) returns (_pct_return : fieldElement51)
@@ -262,6 +302,14 @@ spec {
 };
  procedure Impl__6_clone (self : edwardsPoint) returns (_pct_return : edwardsPoint)
 spec {
+  requires Sequence.length(fieldElement51..limbs(edwardsPoint..X(self))) == 5;
+  requires Sequence.length(fieldElement51..limbs(edwardsPoint..Y(self))) == 5;
+  requires Sequence.length(fieldElement51..limbs(edwardsPoint..Z(self))) == 5;
+  requires Sequence.length(fieldElement51..limbs(edwardsPoint..T(self))) == 5;
+  ensures Sequence.length(fieldElement51..limbs(edwardsPoint..X(_pct_return))) == 5;
+  ensures Sequence.length(fieldElement51..limbs(edwardsPoint..Y(_pct_return))) == 5;
+  ensures Sequence.length(fieldElement51..limbs(edwardsPoint..Z(_pct_return))) == 5;
+  ensures Sequence.length(fieldElement51..limbs(edwardsPoint..T(_pct_return))) == 5;
   ensures _pct_return == self;
   } {
   _pct_return := self;
@@ -290,6 +338,10 @@ spec {
   requires Sequence.length(fieldElement51..limbs(X)) == 5;
   requires Sequence.length(fieldElement51..limbs(Y)) == 5;
   requires Sequence.length(fieldElement51..limbs(Z)) == 5;
+  ensures Sequence.length(fieldElement51..limbs(edwardsPoint..X(result))) == 5;
+  ensures Sequence.length(fieldElement51..limbs(edwardsPoint..Y(result))) == 5;
+  ensures Sequence.length(fieldElement51..limbs(edwardsPoint..Z(result))) == 5;
+  ensures Sequence.length(fieldElement51..limbs(edwardsPoint..T(result))) == 5;
   requires fe51_limbs_bounded(X, bv{64}(52));
   requires fe51_limbs_bounded(Y, bv{64}(51));
   requires fe51_limbs_bounded(Z, bv{64}(51));
@@ -305,6 +357,10 @@ spec {
  procedure Impl__11_decompress (self : compressedEdwardsY) returns (result : (Option_option edwardsPoint))
 spec {
   requires Sequence.length(compressedEdwardsY.._0(self)) == 32;
+  ensures Option_option..isOption_option_Some(result) ==> Sequence.length(fieldElement51..limbs(edwardsPoint..X(Option_option..Option_option_Some_0(result)))) == 5;
+  ensures Option_option..isOption_option_Some(result) ==> Sequence.length(fieldElement51..limbs(edwardsPoint..Y(Option_option..Option_option_Some_0(result)))) == 5;
+  ensures Option_option..isOption_option_Some(result) ==> Sequence.length(fieldElement51..limbs(edwardsPoint..Z(Option_option..Option_option_Some_0(result)))) == 5;
+  ensures Option_option..isOption_option_Some(result) ==> Sequence.length(fieldElement51..limbs(edwardsPoint..T(Option_option..Option_option_Some_0(result)))) == 5;
   ensures is_valid_edwards_y_coordinate(field_element_from_bytes(compressedEdwardsY.._0(self))) == Option_option..isOption_option_Some(result);
   ensures Option_option..isOption_option_Some(result) ==> nat.toInt(edwards_y_nat(Option_option..Option_option_Some_0(result))) == nat.toInt(field_element_from_bytes(compressedEdwardsY.._0(self))) && nat.toInt(edwards_z_nat(Option_option..Option_option_Some_0(result))) == 1 && is_well_formed_edwards_point(Option_option..Option_option_Some_0(result)) && (!(nat.toInt(field_square(field_element_from_bytes(compressedEdwardsY.._0(self)))) == 1) ==> edwards_x_sign_bit(Option_option..Option_option_Some_0(result)) == Sequence.select(compressedEdwardsY.._0(self), 31) >> bv{8}(7));
   } {
@@ -436,6 +492,10 @@ spec {
 };
  procedure lemma_unfold_edwards (point : edwardsPoint) returns ()
 spec {
+  requires Sequence.length(fieldElement51..limbs(edwardsPoint..X(point))) == 5;
+  requires Sequence.length(fieldElement51..limbs(edwardsPoint..Y(point))) == 5;
+  requires Sequence.length(fieldElement51..limbs(edwardsPoint..Z(point))) == 5;
+  requires Sequence.length(fieldElement51..limbs(edwardsPoint..T(point))) == 5;
   ensures edwards_x(point) == edwardsPoint..X(point);
   ensures edwards_y(point) == edwardsPoint..Y(point);
   ensures edwards_z(point) == edwardsPoint..Z(point);
@@ -502,6 +562,10 @@ spec {
 };
  procedure lemma_decompress_valid_branch (repr_bytes : Sequence bv8, x_orig : nat, point : edwardsPoint) returns ()
 spec {
+  requires Sequence.length(fieldElement51..limbs(edwardsPoint..X(point))) == 5;
+  requires Sequence.length(fieldElement51..limbs(edwardsPoint..Y(point))) == 5;
+  requires Sequence.length(fieldElement51..limbs(edwardsPoint..Z(point))) == 5;
+  requires Sequence.length(fieldElement51..limbs(edwardsPoint..T(point))) == 5;
   requires Sequence.length(repr_bytes) == 32;
   requires nat.toInt(fe51_as_canonical_nat(edwardsPoint..Y(point))) == nat.toInt(field_element_from_bytes(repr_bytes));
   requires is_on_edwards_curve(x_orig, fe51_as_canonical_nat(edwardsPoint..Y(point)));

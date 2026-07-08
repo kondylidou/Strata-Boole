@@ -64,11 +64,14 @@ definition-level guard class shared with B1–B3 (the 32-term `u8_32_as_nat`
 guards, `p`/`field_canonical` guards, and their call-site echoes), amplified
 by the faithful int-domain limb arithmetic.
 
-Results (z3, 2026-07-03): 785 of 797 obligations pass, 0 fail; the 12
+Results (z3, 2026-07-06): 963 of 1009 obligations pass, 0 fail; the 46
 timeouts are the nonlinear field-arithmetic `assert_*` chain.  The
 definition-level guard class is closed by the synthesized
-`Sequence.length` contracts and the `[T; N]`-returning spec-fn axioms
-(`u8_32_from_nat_ret_len`, `ristretto_compress_extended_ret_len`, …).
+`Sequence.length` contracts (boundary `requires`/`ensures` threading —
+no global per-field length axioms, which total datatypes refute; hence
+the obligation count grew from the earlier 797) and the param-guarded
+`[T; N]`-returning spec-fn axioms (`u8_32_from_nat_ret_len`,
+`ristretto_compress_extended_ret_len`, …).
 
 Status: builds and verifies against this branch (ε choose grammar,
 `as_int` casts, native `command_choosefndef`, `toCoreMonoType` type-arg
@@ -131,10 +134,6 @@ program Boole;
  datatype edwardsPoint {
   edwardsPoint_ctor(X : fieldElement51, Y : fieldElement51, Z : fieldElement51, T : fieldElement51)
 };
- axiom [edwardsPoint_X_len]: ∀ s : edwardsPoint :: Sequence.length(fieldElement51..limbs(edwardsPoint..X(s))) == 5;
- axiom [edwardsPoint_Y_len]: ∀ s : edwardsPoint :: Sequence.length(fieldElement51..limbs(edwardsPoint..Y(s))) == 5;
- axiom [edwardsPoint_Z_len]: ∀ s : edwardsPoint :: Sequence.length(fieldElement51..limbs(edwardsPoint..Z(s))) == 5;
- axiom [edwardsPoint_T_len]: ∀ s : edwardsPoint :: Sequence.length(fieldElement51..limbs(edwardsPoint..T(s))) == 5;
  datatype ristrettoPoint {
   ristrettoPoint_ctor(_0 : edwardsPoint)
 };
@@ -348,41 +347,77 @@ spec {
  function iNVSQRT_A_MINUS_D () : fieldElement51 {
   fieldElement51_ctor(Sequence.of_bv64[bv{64}(278908739862762), bv{64}(821645201101625), bv{64}(8113234426968), bv{64}(1777959178193151), bv{64}(2118520810568447)])
 }
- function edwards_x (point : edwardsPoint) : fieldElement51 {
+ function edwards_x (point : edwardsPoint) : fieldElement51 requires Sequence.length(fieldElement51..limbs(edwardsPoint..X(point))) == 5;
+   requires Sequence.length(fieldElement51..limbs(edwardsPoint..Y(point))) == 5;
+   requires Sequence.length(fieldElement51..limbs(edwardsPoint..Z(point))) == 5;
+   requires Sequence.length(fieldElement51..limbs(edwardsPoint..T(point))) == 5;
+   {
   edwardsPoint..X(point)
 }
- function edwards_y (point : edwardsPoint) : fieldElement51 {
+ function edwards_y (point : edwardsPoint) : fieldElement51 requires Sequence.length(fieldElement51..limbs(edwardsPoint..X(point))) == 5;
+   requires Sequence.length(fieldElement51..limbs(edwardsPoint..Y(point))) == 5;
+   requires Sequence.length(fieldElement51..limbs(edwardsPoint..Z(point))) == 5;
+   requires Sequence.length(fieldElement51..limbs(edwardsPoint..T(point))) == 5;
+   {
   edwardsPoint..Y(point)
 }
- function edwards_z (point : edwardsPoint) : fieldElement51 {
+ function edwards_z (point : edwardsPoint) : fieldElement51 requires Sequence.length(fieldElement51..limbs(edwardsPoint..X(point))) == 5;
+   requires Sequence.length(fieldElement51..limbs(edwardsPoint..Y(point))) == 5;
+   requires Sequence.length(fieldElement51..limbs(edwardsPoint..Z(point))) == 5;
+   requires Sequence.length(fieldElement51..limbs(edwardsPoint..T(point))) == 5;
+   {
   edwardsPoint..Z(point)
 }
- function edwards_t (point : edwardsPoint) : fieldElement51 {
+ function edwards_t (point : edwardsPoint) : fieldElement51 requires Sequence.length(fieldElement51..limbs(edwardsPoint..X(point))) == 5;
+   requires Sequence.length(fieldElement51..limbs(edwardsPoint..Y(point))) == 5;
+   requires Sequence.length(fieldElement51..limbs(edwardsPoint..Z(point))) == 5;
+   requires Sequence.length(fieldElement51..limbs(edwardsPoint..T(point))) == 5;
+   {
   edwardsPoint..T(point)
 }
- function edwards_point_as_nat (point : edwardsPoint) : Tuple2 nat (Tuple2 nat (Tuple2 nat nat)) {
+ function edwards_point_as_nat (point : edwardsPoint) : Tuple2 nat (Tuple2 nat (Tuple2 nat nat)) requires Sequence.length(fieldElement51..limbs(edwardsPoint..X(point))) == 5;
+   requires Sequence.length(fieldElement51..limbs(edwardsPoint..Y(point))) == 5;
+   requires Sequence.length(fieldElement51..limbs(edwardsPoint..Z(point))) == 5;
+   requires Sequence.length(fieldElement51..limbs(edwardsPoint..T(point))) == 5;
+   {
   Tuple2_ctor_2(fe51_as_canonical_nat(edwards_x(point)), Tuple2_ctor_2(fe51_as_canonical_nat(edwards_y(point)), Tuple2_ctor_2(fe51_as_canonical_nat(edwards_z(point)), fe51_as_canonical_nat(edwards_t(point)))))
 }
  function is_valid_extended_edwards_point (x : nat, y : nat, z : nat, t : nat) : bool {
   !(nat.toInt(field_canonical(z)) == 0) && is_on_edwards_curve_projective(x, y, z) && nat.toInt(field_mul(x, y)) == nat.toInt(field_mul(z, t))
 }
- function is_valid_edwards_point (point : edwardsPoint) : bool {
+ function is_valid_edwards_point (point : edwardsPoint) : bool requires Sequence.length(fieldElement51..limbs(edwardsPoint..X(point))) == 5;
+   requires Sequence.length(fieldElement51..limbs(edwardsPoint..Y(point))) == 5;
+   requires Sequence.length(fieldElement51..limbs(edwardsPoint..Z(point))) == 5;
+   requires Sequence.length(fieldElement51..limbs(edwardsPoint..T(point))) == 5;
+   {
   is_valid_extended_edwards_point(fe51_as_canonical_nat(edwards_x(point)), fe51_as_canonical_nat(edwards_y(point)), fe51_as_canonical_nat(edwards_z(point)), fe51_as_canonical_nat(edwards_t(point)))
 }
- function edwards_point_limbs_bounded (point : edwardsPoint) : bool {
+ function edwards_point_limbs_bounded (point : edwardsPoint) : bool requires Sequence.length(fieldElement51..limbs(edwardsPoint..X(point))) == 5;
+   requires Sequence.length(fieldElement51..limbs(edwardsPoint..Y(point))) == 5;
+   requires Sequence.length(fieldElement51..limbs(edwardsPoint..Z(point))) == 5;
+   requires Sequence.length(fieldElement51..limbs(edwardsPoint..T(point))) == 5;
+   {
   fe51_limbs_bounded(edwards_x(point), bv{64}(52)) && fe51_limbs_bounded(edwards_y(point), bv{64}(52)) && fe51_limbs_bounded(edwards_z(point), bv{64}(52)) && fe51_limbs_bounded(edwards_t(point), bv{64}(52))
 }
- function is_well_formed_edwards_point (point : edwardsPoint) : bool {
+ function is_well_formed_edwards_point (point : edwardsPoint) : bool requires Sequence.length(fieldElement51..limbs(edwardsPoint..X(point))) == 5;
+   requires Sequence.length(fieldElement51..limbs(edwardsPoint..Y(point))) == 5;
+   requires Sequence.length(fieldElement51..limbs(edwardsPoint..Z(point))) == 5;
+   requires Sequence.length(fieldElement51..limbs(edwardsPoint..T(point))) == 5;
+   {
   is_valid_edwards_point(point) && edwards_point_limbs_bounded(point) && sum_of_limbs_bounded(edwards_y(point), edwards_x(point), bv{64}(18446744073709551615))
 }
  function ristretto_compress_extended (x : nat, y : nat, z : nat, t : nat) : Sequence bv8 {
   u8_32_from_nat(if is_negative(field_mul(if is_negative(field_mul(t, field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(field_add(z, y), field_sub(z, y))), field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(x, y)), t)))) then field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(field_add(z, y), field_sub(z, y))), fe51_as_canonical_nat(iNVSQRT_A_MINUS_D)) else field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(x, y)), field_sub(z, if is_negative(field_mul(if is_negative(field_mul(t, field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(field_add(z, y), field_sub(z, y))), field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(x, y)), t)))) then field_mul(y, sqrt_m1) else x, field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(field_add(z, y), field_sub(z, y))), field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(x, y)), t)))) then field_neg(if is_negative(field_mul(t, field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(field_add(z, y), field_sub(z, y))), field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(x, y)), t)))) then field_mul(x, sqrt_m1) else y) else if is_negative(field_mul(t, field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(field_add(z, y), field_sub(z, y))), field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(x, y)), t)))) then field_mul(x, sqrt_m1) else y))) then field_neg(field_mul(if is_negative(field_mul(t, field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(field_add(z, y), field_sub(z, y))), field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(x, y)), t)))) then field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(field_add(z, y), field_sub(z, y))), fe51_as_canonical_nat(iNVSQRT_A_MINUS_D)) else field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(x, y)), field_sub(z, if is_negative(field_mul(if is_negative(field_mul(t, field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(field_add(z, y), field_sub(z, y))), field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(x, y)), t)))) then field_mul(y, sqrt_m1) else x, field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(field_add(z, y), field_sub(z, y))), field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(x, y)), t)))) then field_neg(if is_negative(field_mul(t, field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(field_add(z, y), field_sub(z, y))), field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(x, y)), t)))) then field_mul(x, sqrt_m1) else y) else if is_negative(field_mul(t, field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(field_add(z, y), field_sub(z, y))), field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(x, y)), t)))) then field_mul(x, sqrt_m1) else y))) else field_mul(if is_negative(field_mul(t, field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(field_add(z, y), field_sub(z, y))), field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(x, y)), t)))) then field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(field_add(z, y), field_sub(z, y))), fe51_as_canonical_nat(iNVSQRT_A_MINUS_D)) else field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(x, y)), field_sub(z, if is_negative(field_mul(if is_negative(field_mul(t, field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(field_add(z, y), field_sub(z, y))), field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(x, y)), t)))) then field_mul(y, sqrt_m1) else x, field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(field_add(z, y), field_sub(z, y))), field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(x, y)), t)))) then field_neg(if is_negative(field_mul(t, field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(field_add(z, y), field_sub(z, y))), field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(x, y)), t)))) then field_mul(x, sqrt_m1) else y) else if is_negative(field_mul(t, field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(field_add(z, y), field_sub(z, y))), field_mul(field_mul(nat_invsqrt(field_mul(field_mul(field_add(z, y), field_sub(z, y)), field_square(field_mul(x, y)))), field_mul(x, y)), t)))) then field_mul(x, sqrt_m1) else y)))
 }
  axiom [ristretto_compress_extended_ret_len]: ∀ x : nat, y : nat, z : nat, t : nat :: Sequence.length(ristretto_compress_extended(x, y, z, t)) == 32;
- function spec_ristretto_compress (point : ristrettoPoint) : Sequence bv8 {
+ function spec_ristretto_compress (point : ristrettoPoint) : Sequence bv8 requires Sequence.length(fieldElement51..limbs(edwardsPoint..X(ristrettoPoint.._0(point)))) == 5;
+   requires Sequence.length(fieldElement51..limbs(edwardsPoint..Y(ristrettoPoint.._0(point)))) == 5;
+   requires Sequence.length(fieldElement51..limbs(edwardsPoint..Z(ristrettoPoint.._0(point)))) == 5;
+   requires Sequence.length(fieldElement51..limbs(edwardsPoint..T(ristrettoPoint.._0(point)))) == 5;
+   {
   ristretto_compress_extended(Tuple2.._0(edwards_point_as_nat(ristrettoPoint.._0(point))), Tuple2.._0(Tuple2.._1(edwards_point_as_nat(ristrettoPoint.._0(point)))), Tuple2.._0(Tuple2.._1(Tuple2.._1(edwards_point_as_nat(ristrettoPoint.._0(point))))), Tuple2.._1(Tuple2.._1(Tuple2.._1(edwards_point_as_nat(ristrettoPoint.._0(point))))))
 }
- axiom [spec_ristretto_compress_ret_len]: ∀ point : ristrettoPoint :: Sequence.length(spec_ristretto_compress(point)) == 32;
+ axiom [spec_ristretto_compress_ret_len]: ∀ point : ristrettoPoint :: Sequence.length(fieldElement51..limbs(edwardsPoint..X(ristrettoPoint.._0(point)))) == 5 && Sequence.length(fieldElement51..limbs(edwardsPoint..Y(ristrettoPoint.._0(point)))) == 5 && Sequence.length(fieldElement51..limbs(edwardsPoint..Z(ristrettoPoint.._0(point)))) == 5 && Sequence.length(fieldElement51..limbs(edwardsPoint..T(ristrettoPoint.._0(point)))) == 5 ==> Sequence.length(spec_ristretto_compress(point)) == 32;
  procedure Impl__2_clone (self : fieldElement51) returns (_pct_return : fieldElement51)
 spec {
   requires Sequence.length(fieldElement51..limbs(self)) == 5;
@@ -394,6 +429,14 @@ spec {
 };
  procedure Impl__6_clone (self : edwardsPoint) returns (_pct_return : edwardsPoint)
 spec {
+  requires Sequence.length(fieldElement51..limbs(edwardsPoint..X(self))) == 5;
+  requires Sequence.length(fieldElement51..limbs(edwardsPoint..Y(self))) == 5;
+  requires Sequence.length(fieldElement51..limbs(edwardsPoint..Z(self))) == 5;
+  requires Sequence.length(fieldElement51..limbs(edwardsPoint..T(self))) == 5;
+  ensures Sequence.length(fieldElement51..limbs(edwardsPoint..X(_pct_return))) == 5;
+  ensures Sequence.length(fieldElement51..limbs(edwardsPoint..Y(_pct_return))) == 5;
+  ensures Sequence.length(fieldElement51..limbs(edwardsPoint..Z(_pct_return))) == 5;
+  ensures Sequence.length(fieldElement51..limbs(edwardsPoint..T(_pct_return))) == 5;
   ensures _pct_return == self;
   } {
   _pct_return := self;
@@ -401,6 +444,14 @@ spec {
 };
  procedure Impl__9_clone (self : ristrettoPoint) returns (_pct_return : ristrettoPoint)
 spec {
+  requires Sequence.length(fieldElement51..limbs(edwardsPoint..X(ristrettoPoint.._0(self)))) == 5;
+  requires Sequence.length(fieldElement51..limbs(edwardsPoint..Y(ristrettoPoint.._0(self)))) == 5;
+  requires Sequence.length(fieldElement51..limbs(edwardsPoint..Z(ristrettoPoint.._0(self)))) == 5;
+  requires Sequence.length(fieldElement51..limbs(edwardsPoint..T(ristrettoPoint.._0(self)))) == 5;
+  ensures Sequence.length(fieldElement51..limbs(edwardsPoint..X(ristrettoPoint.._0(_pct_return)))) == 5;
+  ensures Sequence.length(fieldElement51..limbs(edwardsPoint..Y(ristrettoPoint.._0(_pct_return)))) == 5;
+  ensures Sequence.length(fieldElement51..limbs(edwardsPoint..Z(ristrettoPoint.._0(_pct_return)))) == 5;
+  ensures Sequence.length(fieldElement51..limbs(edwardsPoint..T(ristrettoPoint.._0(_pct_return)))) == 5;
   ensures _pct_return == self;
   } {
   _pct_return := self;
@@ -415,6 +466,10 @@ spec {
 };
  procedure Impl__14_compress (self : ristrettoPoint) returns (result : compressedRistretto)
 spec {
+  requires Sequence.length(fieldElement51..limbs(edwardsPoint..X(ristrettoPoint.._0(self)))) == 5;
+  requires Sequence.length(fieldElement51..limbs(edwardsPoint..Y(ristrettoPoint.._0(self)))) == 5;
+  requires Sequence.length(fieldElement51..limbs(edwardsPoint..Z(ristrettoPoint.._0(self)))) == 5;
+  requires Sequence.length(fieldElement51..limbs(edwardsPoint..T(ristrettoPoint.._0(self)))) == 5;
   ensures Sequence.length(compressedRistretto.._0(result)) == 32;
   requires is_well_formed_edwards_point(ristrettoPoint.._0(self));
   ensures compressedRistretto.._0(result) == spec_ristretto_compress(self);
@@ -838,6 +893,10 @@ spec {
 };
  procedure lemma_unfold_edwards (point : edwardsPoint) returns ()
 spec {
+  requires Sequence.length(fieldElement51..limbs(edwardsPoint..X(point))) == 5;
+  requires Sequence.length(fieldElement51..limbs(edwardsPoint..Y(point))) == 5;
+  requires Sequence.length(fieldElement51..limbs(edwardsPoint..Z(point))) == 5;
+  requires Sequence.length(fieldElement51..limbs(edwardsPoint..T(point))) == 5;
   ensures edwards_x(point) == edwardsPoint..X(point);
   ensures edwards_y(point) == edwardsPoint..Y(point);
   ensures edwards_z(point) == edwardsPoint..Z(point);

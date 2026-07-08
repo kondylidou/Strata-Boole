@@ -109,6 +109,7 @@ program Boole;
   nat.fromInt(as_uint(x))
 }
  rec function Seq_map_rec_0 (s : Sequence bv64, n : int) : Sequence nat requires 0 <= n && n <= Sequence.length(s);
+  
 decreases n
   {
   if n <= 0 then Seq_map_empty_0 else Sequence.build(Seq_map_rec_0(s, n - 1), Seq_map_closure_0(n - 1, Sequence.select(s, n - 1)))
@@ -188,6 +189,7 @@ spec {
  procedure Impl__3_from_bytes_wide (bytes : Sequence bv8) returns (s : scalar52)
 spec {
   ensures Sequence.length(scalar52..limbs(s)) == 5;
+  ensures Sequence.length(bytes) == 64;
   ensures is_canonical_scalar52(s);
   ensures nat.toInt(scalar52_as_nat(s)) == nat.toInt(group_canonical(bytes_seq_as_nat(bytes)));
   } {
@@ -211,6 +213,7 @@ spec {
  procedure Impl__4_from_bytes_mod_order_wide (input : Sequence bv8) returns (result : scalar)
 spec {
   ensures Sequence.length(scalar..bytes(result)) == 32;
+  ensures Sequence.length(input) == 64;
   ensures nat.toInt(scalar_as_canonical(result)) == nat.toInt(group_canonical(bytes_seq_as_nat(input)));
   ensures is_canonical_scalar(result);
   ensures is_uniform_bytes(input) ==> is_uniform_scalar(result);
@@ -224,7 +227,9 @@ spec {
   var unpacked : scalar52;
   assume Sequence.length(input) == 64;
   call unpacked := Impl__3_from_bytes_wide(input);
+  
   call result := Impl__3_pack(unpacked);
+  
   call lemma_group_order_smaller_than_pow256();
   call lemma_scalar52_lt_pow2_256_if_canonical(unpacked);
   tmp1 := scalar52_as_nat(unpacked);
@@ -389,19 +394,21 @@ spec {
  procedure axiom_uniform_mod_reduction (input : Sequence bv8, result : scalar) returns ()
 spec {
   requires Sequence.length(scalar..bytes(result)) == 32;
+  requires Sequence.length(input) == 64;
   requires nat.toInt(scalar_as_canonical(result)) == nat.toInt(nat.mod(bytes_seq_as_nat(input), group_order));
   ensures is_uniform_bytes(input) ==> is_uniform_scalar(result);
   } {
-  assume Sequence.length(input) == 64;
   assume false;
   exit axiom_uniform_mod_reduction;
 };
 #end
 
--- cvc5 via Strata.Boole.verify: 186/188 unsat; the only 2 left are the
--- Arithmetic_Div_mod_lemma_small_mod positivity preconditions in Impl__4
--- (0 < pow2(256), 0 < group_order) — provable from the in-scope group_order
--- bound, but cvc5 drowns in the full path context. z3 discharges all 188.
+-- z3 via Strata.Boole.verify discharges all 191 (2026-07-07 regen: the 3
+-- synthesized array-param length clauses add 3 obligations over the earlier
+-- 188).  cvc5 on the pre-length-contract program: 186/188 unsat; the 2 left
+-- were the Arithmetic_Div_mod_lemma_small_mod positivity preconditions in
+-- Impl__4 (0 < pow2(256), 0 < group_order) — provable from the in-scope
+-- group_order bound, but cvc5 drowns in the full path context.
 -- #eval Strata.Boole.verify "cvc5" b2_minimal_program (options := .quiet)
 #eval Strata.Boole.verify "z3" b2_minimal_program (options := .quiet)
 
