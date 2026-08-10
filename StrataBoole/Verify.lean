@@ -497,6 +497,10 @@ private partial def toCoreExpr (e : Boole.Expr) : TranslateM Core.Expression.Exp
   | .seq_empty_bv32 _ => return Core.seqEmptyOp (some (.bitvec 32))
   | .seq_empty_bv64 _ => return Core.seqEmptyOp (some (.bitvec 64))
   | .seq_empty_int _  => return Core.seqEmptyOp (some .int)
+  -- Polymorphic `Sequence.empty<T>()`, inherited from Core Grammar's
+  -- `seq_empty`, for element types with no dedicated typed token above
+  -- (tuples, structs, type parameters).
+  | .seq_empty _ ty   => return Core.seqEmptyOp (some (← toCoreMonoType ty))
   -- Sequence literals: Sequence.of_<ty>[v0, v1, ..., vn]
   -- Lowers to a left-fold of seq_build over a typed seq_empty seed. The
   -- element type must be threaded onto the seed: for vs = [] it is the only
