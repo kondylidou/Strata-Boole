@@ -196,6 +196,20 @@ private def declListToListRev : BooleDDM.DeclList SourceRange → List (BooleDDM
 private def declListToList : BooleDDM.DeclList SourceRange → List (BooleDDM.Bind SourceRange)
   | ds => declListToListRev ds []
 
+/-- A trigger group's expression list, in source order. -/
+private def triggerGroupToExprList : BooleDDM.TriggerGroup SourceRange → List Boole.Expr
+  | .trigger _ ⟨_, exprs⟩ => exprs.toList
+
+private def triggersToListRev :
+    BooleDDM.Triggers SourceRange → List (List Boole.Expr) → List (List Boole.Expr)
+  | .triggersAtom _ g, acc => triggerGroupToExprList g :: acc
+  | .triggersPush _ ts g, acc => triggersToListRev ts (triggerGroupToExprList g :: acc)
+
+/-- A quantifier's trigger groups, in source order (each group itself in
+    source order). Mirrors `declListToList`'s cons-list-walking shape. -/
+private def triggersToList (ts : BooleDDM.Triggers SourceRange) : List (List Boole.Expr) :=
+  triggersToListRev ts []
+
 private def monoDeclListToListRev : BooleDDM.MonoDeclList SourceRange → List (BooleDDM.MonoBind SourceRange) → List (BooleDDM.MonoBind SourceRange)
   | .monoDeclAtom _ b, acc => b :: acc
   | .monoDeclPush _ bs b, acc => monoDeclListToListRev bs (b :: acc)
@@ -366,13 +380,40 @@ mutual
 private partial def toCoreQuant
     (isForall : Bool)
     (ds : BooleDDM.DeclList SourceRange)
-    (body : Boole.Expr) : TranslateM Core.Expression.Expr := do
+    (body : Boole.Expr)
+    (triggerGroups : List (List Boole.Expr) := []) : TranslateM Core.Expression.Expr := do
   let decls := declListToList ds
   let tys ← decls.mapM fun (.bind_mk _ _ _ ty) => toCoreMonoType ty
   let qBVars : Array Core.Expression.Expr := (decls.toArray.mapIdx fun i _ => .bvar () i)
+  -- Translate the body first: `toCoreExpr` has side effects (fvar
+  -- registration order via `resolveFreeVar`) that must not depend on whether
+  -- this quantifier happens to carry a trigger, or every non-triggered
+  -- obligation's output could shift depending on unrelated trigger additions.
   let body' ← withBVarExprs qBVars (toCoreExpr body)
   let q := if isForall then Lambda.QuantifierKind.all else Lambda.QuantifierKind.exist
-  return tys.foldr (fun ty acc => .quant () q "" (some ty) (.bvar () 0) acc) body'
+  -- An empty group (e.g. `#![trigger]` with no expressions) would lower to an
+  -- illegal `:pattern ()`; drop those before deciding whether a real trigger
+  -- exists at all.
+  let nonEmptyGroups := triggerGroups.filter (fun g => !g.isEmpty)
+  if tys.isEmpty || nonEmptyGroups.isEmpty then
+    return tys.foldr (fun ty acc => .quant () q "" (some ty) (.bvar () 0) acc) body'
+  else
+    -- A trigger can only be attached to the innermost quantifier: any group
+    -- mentioning the last-bound variable isn't in scope at an outer level.
+    -- Translate trigger expressions in the same bvar scope as the body so
+    -- indices resolve identically; best-effort per group, since trigger
+    -- expressions were never exposed to `toCoreExpr` before this and an
+    -- unsupported construct there shouldn't fail the whole obligation.
+    let coreGroups ← withBVarExprs qBVars <|
+      nonEmptyGroups.filterMapM (fun grp =>
+        try some <$> grp.mapM toCoreExpr
+        catch _ => pure none)
+    if coreGroups.isEmpty then
+      return tys.foldr (fun ty acc => .quant () q "" (some ty) (.bvar () 0) acc) body'
+    else
+      let realTrigger := Core.mkTriggerExpr coreGroups
+      let innerQuant := .quant () q "" (some tys.getLast!) realTrigger body'
+      return tys.dropLast.foldr (fun ty acc => .quant () q "" (some ty) (.bvar () 0) acc) innerQuant
 
 /--
 Normalize Boole quantifier surface-syntax variants to a single lowering path.
@@ -387,15 +428,17 @@ constructor variants.
 private partial def toCoreQuantExpr? (e : Boole.Expr) : Option (TranslateM Core.Expression.Expr) :=
   match e with
   | .forall _ ds body
-  | .forall_unicode _ ds body
-  | .forallT _ ds _ body
-  | .forall_unicodeT _ ds _ body =>
+  | .forall_unicode _ ds body =>
       some (toCoreQuant true ds body)
+  | .forallT _ ds triggers body
+  | .forall_unicodeT _ ds triggers body =>
+      some (toCoreQuant true ds body (triggersToList triggers))
   | .exists _ ds body
-  | .exists_unicode _ ds body
-  | .existsT _ ds _ body
-  | .exists_unicodeT _ ds _ body =>
+  | .exists_unicode _ ds body =>
       some (toCoreQuant false ds body)
+  | .existsT _ ds triggers body
+  | .exists_unicodeT _ ds triggers body =>
+      some (toCoreQuant false ds body (triggersToList triggers))
   | _ => none
 
 /-- Lower a `Sequence.of_<ty>[v0, ..., vn]` literal to a left-fold of
